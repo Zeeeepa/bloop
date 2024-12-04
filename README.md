@@ -58,6 +58,8 @@ Then follow [these installation instructions](./apps/desktop/README.md). If buil
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/BloopAI/bloop)
 
+[![Open in Codeanywhere](https://codeanywhere.com/img/open-in-codeanywhere-btn.svg)](https://app.codeanywhere.com/#https://github.com/BloopAI/bloop)
+
 We welcome contributions big and small! Before jumping in please read [our contributors guide](./CONTRIBUTING.md) and [our code of conduct](./CODE_OF_CONDUCT.md).
 
 Here's how to find your way around the repo:
