@@ -27,6 +27,16 @@ const http: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
 });
 
+// GitHub API integration
+export const getGitHubRepos = async (): Promise<RepoType[]> => {
+  const response = await http.get('/github/repos');
+  return response.data;
+};
+
+export const syncGitHubRepo = async (repoRef: string): Promise<void> => {
+  await http.post('/github/sync', { repo_ref: repoRef });
+};
+
 export const search = (
   projectId: string,
   q: string,
