@@ -21,11 +21,111 @@ import {
   TutorialQuestionType,
 } from '../types/api';
 import { RepoType } from '../types/general';
+import React, { createContext, useState, useEffect } from 'react';
 
 export const API_BASE_URL = 'http://localhost:7878/api';
 const http: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
 });
+
+// GitHub API configuration
+const GITHUB_API = 'https://api.github.com';
+const LOCAL_API = 'http://localhost:7878/api';
+
+// GitHub auth types
+interface GitHubAuthState {
+  token: string | null;
+  user: any | null;
+}
+
+// GitHub auth context
+export const GitHubContext = createContext<{
+  isAuthenticated: boolean;
+  user: any | null;
+  login: (token: string) => Promise<void>;
+  logout: () => void;
+}>({
+  isAuthenticated: false,
+  user: null,
+  login: async () => {},
+  logout: () => {},
+});
+
+// GitHub auth provider component
+export const GitHubProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [authState, setAuthState] = useState<GitHubAuthState>({
+    token: localStorage.getItem('github_token'),
+    user: null,
+  });
+
+  const login = async (token: string) => {
+    try {
+      const response = await fetch(`${GITHUB_API}/user`, {
+        headers: {
+          Authorization: `token ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error('Invalid token');
+      
+      const user = await response.json();
+      localStorage.setItem('github_token', token);
+      setAuthState({ token, user });
+    } catch (error) {
+      console.error('GitHub auth error:', error);
+      logout();
+      throw error;
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('github_token');
+    setAuthState({ token: null, user: null });
+  };
+
+  useEffect(() => {
+    if (authState.token) {
+      login(authState.token).catch(() => {});
+    }
+  }, []);
+
+  return (
+    <GitHubContext.Provider
+      value={{
+        isAuthenticated: !!authState.token,
+        user: authState.user,
+        login,
+        logout,
+      }}
+    >
+      {children}
+    </GitHubContext.Provider>
+  );
+};
+
+// GitHub API client
+export class GitHubClient {
+  private token: string | null = null;
+
+  setToken(token: string | null) {
+    this.token = token;
+  }
+
+  async getRepositories() {
+    if (!this.token) throw new Error('Not authenticated');
+    
+    const response = await fetch(`${GITHUB_API}/user/repos`, {
+      headers: {
+        Authorization: `token ${this.token}`,
+      },
+    });
+    
+    if (!response.ok) throw new Error('Failed to fetch repositories');
+    return response.json();
+  }
+}
+
+// Export GitHub client instance
+export const githubClient = new GitHubClient();
 
 export const search = (
   projectId: string,
