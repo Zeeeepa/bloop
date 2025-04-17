@@ -541,6 +541,7 @@ export enum CommandBarStepEnum {
 export enum SettingSections {
   GENERAL,
   PREFERENCES,
+  GITHUB,
 }
 
 export enum ProjectSettingSections {

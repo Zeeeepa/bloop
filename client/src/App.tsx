@@ -12,6 +12,7 @@ import ProjectSettings from './ProjectSettings';
 import TabsContextProvider from './context/providers/TabsContextProvider';
 import { FileHighlightsContextProvider } from './context/providers/FileHighlightsContextProvider';
 import RepositoriesContextProvider from './context/providers/RepositoriesContextProvider';
+import GitHubContextProvider from './context/providers/GitHubContextProvider';
 
 const toastOptions = {
   unStyled: true,
@@ -33,21 +34,23 @@ const App = () => {
   return (
     <DndProvider backend={HTML5Backend}>
       <UIContextProvider>
-        <ProjectContextProvider>
-          <Toaster closeButton toastOptions={toastOptions} />
-          <RepositoriesContextProvider>
-            <CommandBarContextProvider>
-              <Settings />
-              <ProjectSettings />
-              <FileHighlightsContextProvider>
-                <TabsContextProvider>
-                  <CommandBar />
-                  <Project />
-                </TabsContextProvider>
-              </FileHighlightsContextProvider>
-            </CommandBarContextProvider>
-          </RepositoriesContextProvider>
-        </ProjectContextProvider>
+        <GitHubContextProvider>
+          <ProjectContextProvider>
+            <Toaster closeButton toastOptions={toastOptions} />
+            <RepositoriesContextProvider>
+              <CommandBarContextProvider>
+                <Settings />
+                <ProjectSettings />
+                <FileHighlightsContextProvider>
+                  <TabsContextProvider>
+                    <CommandBar />
+                    <Project />
+                  </TabsContextProvider>
+                </FileHighlightsContextProvider>
+              </CommandBarContextProvider>
+            </RepositoriesContextProvider>
+          </ProjectContextProvider>
+        </GitHubContextProvider>
       </UIContextProvider>
     </DndProvider>
   );

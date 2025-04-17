@@ -5,9 +5,12 @@ import Header from '../components/Header';
 import useKeyboardNavigation from '../hooks/useKeyboardNavigation';
 import { SettingSections } from '../types/general';
 import SectionsNav from '../components/SectionsNav';
-import { CogIcon } from '../icons';
+import { CogIcon, GitHubIcon } from '../icons';
 import General from './General';
 import Preferences from './Preferences';
+import GitHubLogin from '../components/GitHubLogin';
+import GitHubRepos from '../components/GitHubRepos';
+import { GitHubContext } from '../context/githubContext';
 
 type Props = {};
 
@@ -19,6 +22,7 @@ const Settings = ({}: Props) => {
     settingsSection,
     setSettingsSection,
   } = useContext(UIContext.Settings);
+  const { isAuthenticated } = useContext(GitHubContext);
 
   const handleKeyEvent = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -47,8 +51,41 @@ const Settings = ({}: Props) => {
           },
         ],
       },
+      {
+        title: t('Integrations'),
+        Icon: GitHubIcon,
+        items: [
+          {
+            type: SettingSections.GITHUB,
+            label: t('GitHub'),
+            onClick: setSettingsSection,
+          },
+        ],
+      },
     ];
   }, [t]);
+
+  const renderContent = () => {
+    switch (settingsSection) {
+      case SettingSections.GENERAL:
+        return <General />;
+      case SettingSections.PREFERENCES:
+        return <Preferences />;
+      case SettingSections.GITHUB:
+        return (
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold mb-6">{t('GitHub Integration')}</h2>
+            {!isAuthenticated ? (
+              <GitHubLogin />
+            ) : (
+              <GitHubRepos />
+            )}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return isSettingsOpen ? (
     <div className="fixed top-0 bottom-0 left-0 right-0 bg-bg-sub select-none z-40">
@@ -58,11 +95,7 @@ const Settings = ({}: Props) => {
           sections={settingsSections}
           activeItem={settingsSection}
         />
-        {settingsSection === SettingSections.GENERAL ? (
-          <General />
-        ) : settingsSection === SettingSections.PREFERENCES ? (
-          <Preferences />
-        ) : null}
+        {renderContent()}
         <div className="w-56 flex-1 hidden lg:block" />
       </div>
     </div>

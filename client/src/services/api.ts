@@ -27,6 +27,28 @@ const http: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
 });
 
+// GitHub API configuration
+const GITHUB_API_URL = 'https://api.github.com';
+const githubHttp: AxiosInstance = axios.create({
+  baseURL: GITHUB_API_URL,
+});
+
+// Set GitHub auth token
+export const setGitHubToken = (token: string) => {
+  githubHttp.defaults.headers.common['Authorization'] = `token ${token}`;
+};
+
+// GitHub API calls
+export const getGitHubRepos = async (): Promise<any[]> => {
+  const response = await githubHttp.get('/user/repos');
+  return response.data;
+};
+
+export const getGitHubUser = async (): Promise<any> => {
+  const response = await githubHttp.get('/user');
+  return response.data;
+};
+
 export const search = (
   projectId: string,
   q: string,
