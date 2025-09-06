@@ -1,9 +1,12 @@
 use std::{path::Path, sync::Arc};
 
 use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
 use futures::TryFutureExt;
-use sqlx::SqlitePool;
+use serde::{Deserialize, Serialize};
+use sqlx::{FromRow, SqlitePool};
 use tracing::{debug, error};
+use uuid::Uuid;
 
 use crate::Configuration;
 
@@ -214,4 +217,70 @@ fn studio_context_repos(context: &serde_json::Value) -> Option<Vec<&str>> {
         repos.push(context_file.as_object()?.get("repo")?.as_str()?);
     }
     Some(repos)
+}
+
+// Codex integration models
+
+/// Event context model - stores all interaction contexts
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct EventContext {
+    pub id: Uuid,
+    pub session_id: Uuid,
+    pub user_id: Option<String>,
+    pub event_type: String,
+    pub context_data: serde_json::Value,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Interaction log model - stores all user-AI interactions
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct InteractionLog {
+    pub id: Uuid,
+    pub session_id: Uuid,
+    pub event_context_id: Option<Uuid>,
+    pub interaction_type: String,
+    pub content: String,
+    pub tokens_used: Option<i32>,
+    pub processing_time_ms: Option<i32>,
+    pub model_used: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Context stream model - manages streaming contexts to Codex agent
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ContextStream {
+    pub id: Uuid,
+    pub session_id: Uuid,
+    pub stream_type: String,
+    pub context_payload: serde_json::Value,
+    pub stream_status: String,
+    pub priority: i32,
+    pub created_at: DateTime<Utc>,
+    pub streamed_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+/// Agent session model - tracks Codex agent sessions
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct AgentSession {
+    pub id: Uuid,
+    pub user_id: Option<String>,
+    pub session_token: String,
+    pub agent_config: serde_json::Value,
+    pub session_status: String,
+    pub last_activity: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
+/// Context relationship model - tracks relationships between contexts
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ContextRelationship {
+    pub id: Uuid,
+    pub parent_context_id: Uuid,
+    pub child_context_id: Uuid,
+    pub relationship_type: String,
+    pub created_at: DateTime<Utc>,
 }

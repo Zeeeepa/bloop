@@ -9,7 +9,11 @@ use reqwest_eventsource::EventSource;
 use tracing::{debug, error, warn};
 use uuid::Uuid;
 
-use crate::{codex_client::{CodexClient, CodexRequest}, periodic::sync_github_status_once, Application};
+use crate::{
+    codex_client::{CodexClient, CodexRequest},
+    periodic::sync_github_status_once,
+    Application,
+};
 
 use self::api::FunctionCall;
 
@@ -243,7 +247,7 @@ pub struct Client {
     pub model: Option<String>,
     pub session_reference_id: Option<String>,
     pub quota_gated: bool,
-    
+
     // Local Codex client
     pub codex_client: Option<CodexClient>,
 }
@@ -515,7 +519,9 @@ impl Client {
         messages: &[api::Message],
         functions: Option<&[api::Function]>,
     ) -> Result<impl Stream<Item = anyhow::Result<String>>, ChatError> {
-        let codex_client = self.codex_client.as_ref()
+        let codex_client = self
+            .codex_client
+            .as_ref()
             .ok_or_else(|| ChatError::Other(anyhow!("LocalCodex client not configured")))?;
 
         // Create a session ID for this request
@@ -542,7 +548,10 @@ impl Client {
             Ok(stream) => Ok(stream),
             Err(e) => {
                 error!("Failed to start Codex stream: {:?}", e);
-                Err(ChatError::Other(anyhow!("Failed to start Codex stream: {:?}", e)))
+                Err(ChatError::Other(anyhow!(
+                    "Failed to start Codex stream: {:?}",
+                    e
+                )))
             }
         }
     }

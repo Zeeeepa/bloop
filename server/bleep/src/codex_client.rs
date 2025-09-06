@@ -150,33 +150,32 @@ impl CodexClient {
             }
         }
 
-        Ok(event_source
-            .filter_map(|result| async move {
-                match result {
-                    Ok(reqwest_eventsource::Event::Message(msg)) => {
-                        match serde_json::from_str::<CodexStreamResponse>(&msg.data) {
-                            Ok(stream_response) => {
-                                if stream_response.finished {
-                                    debug!("Codex stream finished");
-                                    None
-                                } else {
-                                    Some(Ok(stream_response.delta))
-                                }
-                            }
-                            Err(e) => {
-                                warn!("Failed to parse Codex stream response: {:?}", e);
-                                Some(Err(anyhow!("Failed to parse stream response: {:?}", e)))
+        Ok(event_source.filter_map(|result| async move {
+            match result {
+                Ok(reqwest_eventsource::Event::Message(msg)) => {
+                    match serde_json::from_str::<CodexStreamResponse>(&msg.data) {
+                        Ok(stream_response) => {
+                            if stream_response.finished {
+                                debug!("Codex stream finished");
+                                None
+                            } else {
+                                Some(Ok(stream_response.delta))
                             }
                         }
-                    }
-                    Ok(reqwest_eventsource::Event::Open) => None,
-                    Err(reqwest_eventsource::Error::StreamEnded) => None,
-                    Err(e) => {
-                        error!("Codex stream error: {:?}", e);
-                        Some(Err(anyhow!("Stream error: {:?}", e)))
+                        Err(e) => {
+                            warn!("Failed to parse Codex stream response: {:?}", e);
+                            Some(Err(anyhow!("Failed to parse stream response: {:?}", e)))
+                        }
                     }
                 }
-            }))
+                Ok(reqwest_eventsource::Event::Open) => None,
+                Err(reqwest_eventsource::Error::StreamEnded) => None,
+                Err(e) => {
+                    error!("Codex stream error: {:?}", e);
+                    Some(Err(anyhow!("Stream error: {:?}", e)))
+                }
+            }
+        }))
     }
 
     /// Update context for a session
@@ -189,7 +188,10 @@ impl CodexClient {
 
         let response = self
             .http
-            .post(&format!("{}/v1/sessions/{}/context", self.base_url, session_id))
+            .post(&format!(
+                "{}/v1/sessions/{}/context",
+                self.base_url, session_id
+            ))
             .json(&context_data)
             .timeout(Duration::from_secs(30))
             .send()
@@ -251,7 +253,11 @@ impl CodexClient {
             .await?;
 
         if !response.status().is_success() {
-            warn!("Failed to close session {}: {}", session_id, response.status());
+            warn!(
+                "Failed to close session {}: {}",
+                session_id,
+                response.status()
+            );
         } else {
             debug!("Session closed successfully: {}", session_id);
         }
