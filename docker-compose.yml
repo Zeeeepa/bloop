@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: bloop
+      POSTGRES_USER: bloop
+      POSTGRES_PASSWORD: bloop_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./server/bleep/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bloop"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Local Codex Agent
+  codex-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.codex
+    environment:
+      - CODEX_CONFIG_PATH=/home/codex/.codex/config.toml
+      - CODEX_LOG_LEVEL=info
+      - CODEX_API_PORT=8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - codex_config:/home/codex/.codex
+      - codex_cache:/home/codex/.cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Bloop Backend Server
+  bloop-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://bloop:bloop_password@postgres:5432/bloop
+      - REDIS_URL=redis://redis:6379
+      - CODEX_API_URL=http://codex-agent:8080
+      - RUST_LOG=info
+      - ANSWER_API_URL=http://codex-agent:8080
+    ports:
+      - "7878:7878"
+    volumes:
+      - ./server:/app/server
+      - bloop_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      codex-agent:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Bloop Frontend Client
+  bloop-client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    environment:
+      - VITE_API_URL=http://localhost:7878
+      - VITE_CODEX_ENABLED=true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    depends_on:
+      - bloop-server
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  codex_config:
+  codex_cache:
+  bloop_data:
+
+networks:
+  default:
+    name: bloop-network
