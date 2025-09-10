@@ -7,8 +7,13 @@ use axum::http::StatusCode;
 use futures::{Stream, StreamExt};
 use reqwest_eventsource::EventSource;
 use tracing::{debug, error, warn};
+use uuid::Uuid;
 
-use crate::{periodic::sync_github_status_once, Application};
+use crate::{
+    codex_client::{CodexClient, CodexRequest},
+    periodic::sync_github_status_once,
+    Application,
+};
 
 use self::api::FunctionCall;
 
@@ -98,6 +103,7 @@ pub mod api {
     pub enum Provider {
         OpenAi,
         Anthropic,
+        LocalCodex,
     }
 
     #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
@@ -111,6 +117,12 @@ pub mod api {
     pub enum Error {
         #[error("bad OpenAI request")]
         BadOpenAiRequest,
+
+        #[error("bad Local Codex request")]
+        BadLocalCodexRequest,
+
+        #[error("Local Codex unavailable")]
+        LocalCodexUnavailable,
 
         #[error("incorrect configuration")]
         BadConfiguration,
@@ -235,6 +247,9 @@ pub struct Client {
     pub model: Option<String>,
     pub session_reference_id: Option<String>,
     pub quota_gated: bool,
+
+    // Local Codex client
+    pub codex_client: Option<CodexClient>,
 }
 
 impl Client {
@@ -246,7 +261,7 @@ impl Client {
             max_retries: 5,
 
             bearer_token: None,
-            provider: api::Provider::OpenAi,
+            provider: api::Provider::LocalCodex,
             temperature: None,
             max_tokens: None,
             presence_penalty: None,
@@ -254,6 +269,7 @@ impl Client {
             model: None,
             session_reference_id: None,
             quota_gated: false,
+            codex_client: None,
         }
     }
 
@@ -302,6 +318,12 @@ impl Client {
 
     pub fn quota_gated(mut self, quota_gated: bool) -> Self {
         self.quota_gated = quota_gated;
+        self
+    }
+
+    pub fn codex_client(mut self, codex_url: String) -> Self {
+        self.codex_client = Some(CodexClient::new(codex_url));
+        self.provider = api::Provider::LocalCodex;
         self
     }
 
@@ -397,6 +419,10 @@ impl Client {
         messages: &[api::Message],
         functions: Option<&[api::Function]>,
     ) -> Result<impl Stream<Item = anyhow::Result<String>>, ChatError> {
+        // Handle LocalCodex provider differently
+        if matches!(self.provider, api::Provider::LocalCodex) {
+            return self.handle_local_codex_stream(messages, functions).await;
+        }
         let mut event_source = Box::pin(
             EventSource::new({
                 let mut builder = self
@@ -485,5 +511,48 @@ impl Client {
                 Ok(s) => Ok(serde_json::from_str::<api::Result>(&s)??),
                 Err(e) => bail!("event source error {e:?}"),
             }))
+    }
+
+    /// Handle streaming for LocalCodex provider
+    async fn handle_local_codex_stream(
+        &self,
+        messages: &[api::Message],
+        functions: Option<&[api::Function]>,
+    ) -> Result<impl Stream<Item = anyhow::Result<String>>, ChatError> {
+        let codex_client = self
+            .codex_client
+            .as_ref()
+            .ok_or_else(|| ChatError::Other(anyhow!("LocalCodex client not configured")))?;
+
+        // Create a session ID for this request
+        let session_id = Uuid::new_v4();
+
+        // Prepare the Codex request
+        let codex_request = CodexRequest {
+            messages: messages.to_vec(),
+            functions: functions.map(|f| f.to_vec()),
+            session_id,
+            context_data: serde_json::json!({
+                "session_reference_id": self.session_reference_id,
+                "model": self.model,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens
+            }),
+            max_tokens: self.max_tokens,
+            temperature: self.temperature,
+            stream: true,
+        };
+
+        // Start the stream
+        match codex_client.chat_completion_stream(codex_request).await {
+            Ok(stream) => Ok(stream),
+            Err(e) => {
+                error!("Failed to start Codex stream: {:?}", e);
+                Err(ChatError::Other(anyhow!(
+                    "Failed to start Codex stream: {:?}",
+                    e
+                )))
+            }
+        }
     }
 }

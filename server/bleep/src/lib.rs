@@ -53,6 +53,7 @@ use tracing_subscriber::{
 mod agent;
 mod background;
 mod cache;
+mod codex_client;
 mod collector;
 mod commits;
 mod config;
