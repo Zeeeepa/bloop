@@ -33,6 +33,11 @@ pub mod repos;
 mod search;
 mod studio;
 mod template;
+mod user_data;
+mod bug_reports;
+mod crash_reports;
+mod upvotes;
+mod system_config;
 
 pub type Router<S = Application> = axum::Router<S>;
 
@@ -172,7 +177,17 @@ pub async fn start(app: Application) -> anyhow::Result<()> {
         .route(
             "/quota/create-checkout-session",
             get(quota::create_checkout_session),
-        );
+        )
+        // Local API endpoints (replacing remote api.bloop.ai calls)
+        .route("/user-data", post(user_data::save_user_data))
+        .route("/user-data/:unique_id", get(user_data::get_user_data))
+        .route("/bug-reports", post(bug_reports::save_bug_report).get(bug_reports::get_bug_reports))
+        .route("/crash-reports", post(crash_reports::save_crash_report).get(crash_reports::get_crash_reports))
+        .route("/upvotes", post(upvotes::save_upvote).get(upvotes::get_upvote))
+        .route("/upvotes/all", get(upvotes::get_all_upvotes))
+        .route("/system-config", get(system_config::get_all_config).put(system_config::update_config_value))
+        .route("/system-config/:key", get(system_config::get_config_value))
+        .route("/discord-url", get(system_config::get_discord_link));
 
     if app.env.allow(Feature::AnyPathScan) {
         api = api.route("/repos/scan", get(repos::scan_local));

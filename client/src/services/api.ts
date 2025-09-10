@@ -23,7 +23,8 @@ import {
 import { CodeStudioShortType, EnvConfig, RepoType } from '../types/general';
 import { getPlainFromStorage, REFRESH_TOKEN_KEY } from './storage';
 
-const DB_API = 'https://api.bloop.ai';
+// Remote API URL removed - now using local endpoints
+// const DB_API = 'https://api.bloop.ai';
 let http: AxiosInstance;
 
 export const initApi = (serverUrl = '', isSelfServe?: boolean) => {
@@ -244,7 +245,7 @@ export const saveUserData = (userData: {
   first_name: string;
   last_name: string;
   unique_id: string;
-}) => axios.post(`${DB_API}/users`, userData).then((r) => r.data);
+}) => http.post('/user-data', userData).then((r) => r.data);
 
 export const saveBugReport = (report: {
   email: string;
@@ -254,7 +255,7 @@ export const saveBugReport = (report: {
   app_version: string;
   metadata: string;
   server_log: string;
-}) => axios.post(`${DB_API}/bug_reports`, report).then((r) => r.data);
+}) => http.post('/bug-reports', report).then((r) => r.data);
 
 export const saveCrashReport = (report: {
   text: string;
@@ -265,7 +266,7 @@ export const saveCrashReport = (report: {
   metadata: string;
   app_version: string;
   server_log: string;
-}) => axios.post(`${DB_API}/crash_reports`, report).then((r) => r.data);
+}) => http.post('/crash-reports', report).then((r) => r.data);
 
 export const saveUpvote = (upvote: {
   unique_id: string;
@@ -273,16 +274,16 @@ export const saveUpvote = (upvote: {
   query: string;
   text: string;
   is_upvote: boolean;
-}) => axios.post(`${DB_API}/upvotes`, upvote).then((r) => r.data);
+}) => http.post('/upvotes', upvote).then((r) => r.data);
 
 export const getUpvote = (params: {
   unique_id: string;
   snippet_id: string;
   query: string;
-}) => axios.get(`${DB_API}/upvote`, { params }).then((r) => r.data);
+}) => http.get('/upvotes', { params }).then((r) => r.data);
 
 export const getDiscordLink = () =>
-  axios.get(`${DB_API}/discord-url`).then((r) => r.data);
+  http.get('/discord-url').then((r) => r.data);
 
 export const githubLogout = () => http.get('/auth/logout').then((r) => r.data);
 export const githubLogin = (redirect_to?: string) =>
