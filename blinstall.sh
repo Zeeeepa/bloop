@@ -292,8 +292,8 @@ install_rust() {
     log "Installing Rust..."
     
     # Install Rust using rustup
-    log "Downloading and installing Rust 1.75.0..."
-    if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0; then
+    log "Downloading and installing latest stable Rust..."
+    if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable; then
         error "Failed to install Rust"
     fi
     
@@ -304,6 +304,11 @@ install_rust() {
     if ! command_exists rustup; then
         error "rustup not found after installation"
     fi
+    
+    # Update to latest stable if already installed
+    log "Updating Rust to latest stable version..."
+    rustup update stable || warn "Failed to update Rust"
+    rustup default stable || warn "Failed to set stable as default"
     
     # Add components
     log "Adding Rust components..."
@@ -479,15 +484,8 @@ build_rust_backend() {
         # Create empty database
         sqlite3 bloop.db "SELECT 1;" || true
         
-        # Run migrations if sqlx-cli is available
-        if command_exists sqlx; then
-            log "Running database migrations..."
-            sqlx migrate run --database-url "sqlite:bloop.db" || true
-        else
-            log "Installing sqlx-cli for migrations..."
-            cargo install sqlx-cli --no-default-features --features sqlite || true
-            sqlx migrate run --database-url "sqlite:bloop.db" || true
-        fi
+        # Skip database migrations since we're building without database features
+        log "Skipping database migrations (building without database features)..."
     fi
     
     # Clean problematic cached dependencies
