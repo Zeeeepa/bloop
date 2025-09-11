@@ -3,8 +3,11 @@
 # Bloop Production Installation and Deployment Script
 # Comprehensive dependency installer, checker, and production deployer
 # NO MOCK SERVERS - PRODUCTION ONLY
+# Handles git operations, environment setup, and full deployment
 
 set -e  # Exit on any error
+set -u  # Exit on undefined variables
+set -o pipefail  # Exit on pipe failures
 
 # Colors for output
 RED='\033[0;31m'
@@ -24,6 +27,14 @@ warn() {
 
 error() {
     echo -e "${RED}[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1${NC}"
+    
+    # Show recovery suggestions
+    echo -e "${YELLOW}Recovery suggestions:${NC}"
+    echo -e "${YELLOW}1. Check network connectivity${NC}"
+    echo -e "${YELLOW}2. Ensure you have sufficient disk space${NC}"
+    echo -e "${YELLOW}3. Try running with sudo if permission errors${NC}"
+    echo -e "${YELLOW}4. Check logs in current directory${NC}"
+    
     exit 1
 }
 
@@ -34,6 +45,52 @@ info() {
 # Function to check if command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+# Function to validate environment
+validate_environment() {
+    log "Validating environment..."
+    
+    local errors=0
+    
+    # Check essential commands
+    local required_commands=("git" "curl" "wget")
+    for cmd in "${required_commands[@]}"; do
+        if ! command_exists "$cmd"; then
+            error "Required command not found: $cmd"
+            ((errors++))
+        fi
+    done
+    
+    # Check git configuration
+    if command_exists git; then
+        if ! git config --get user.name >/dev/null; then
+            warn "Git user.name not configured"
+        fi
+        if ! git config --get user.email >/dev/null; then
+            warn "Git user.email not configured"
+        fi
+    fi
+    
+    # Check network connectivity
+    log "Checking network connectivity..."
+    if ! curl -s --connect-timeout 10 https://github.com >/dev/null; then
+        error "Cannot reach GitHub. Check network connection."
+        ((errors++))
+    fi
+    
+    # Check available disk space (minimum 2GB)
+    local available_space=$(df -BG . | awk 'NR==2 {print $4}' | sed 's/G//')
+    if [ "$available_space" -lt 2 ]; then
+        error "Insufficient disk space: ${available_space}GB available, minimum 2GB required"
+        ((errors++))
+    fi
+    
+    if [ $errors -gt 0 ]; then
+        error "Environment validation failed with $errors errors"
+    fi
+    
+    log "Environment validation passed ✓"
 }
 
 # Function to check system requirements
@@ -171,9 +228,31 @@ install_nodejs() {
     fi
 }
 
+# Function to setup Rust environment
+setup_rust_environment() {
+    log "Setting up Rust environment..."
+    
+    # Source Rust environment if it exists
+    if [ -f "$HOME/.cargo/env" ]; then
+        log "Sourcing Rust environment..."
+        source "$HOME/.cargo/env"
+    fi
+    
+    # Add cargo bin to PATH if not already there
+    if [[ ":$PATH:" != *":$HOME/.cargo/bin:"* ]]; then
+        export PATH="$HOME/.cargo/bin:$PATH"
+        log "Added Cargo bin to PATH ✓"
+    fi
+    
+    log "Rust environment setup completed ✓"
+}
+
 # Function to install Rust
 install_rust() {
     log "Checking Rust installation..."
+    
+    # Setup environment first
+    setup_rust_environment
     
     if command_exists rustc && command_exists cargo; then
         RUST_VERSION=$(rustc --version | awk '{print $2}')
@@ -184,69 +263,141 @@ install_rust() {
             log "Rust 1.75.0 toolchain found ✓"
         else
             log "Installing Rust 1.75.0 toolchain..."
-            rustup toolchain install 1.75.0
-            rustup component add rustfmt clippy --toolchain 1.75.0
+            if ! rustup toolchain install 1.75.0; then
+                error "Failed to install Rust 1.75.0 toolchain"
+            fi
+            if ! rustup component add rustfmt clippy --toolchain 1.75.0; then
+                warn "Failed to add some components to 1.75.0 toolchain"
+            fi
         fi
         
         # Set default toolchain
-        rustup default 1.75.0
+        log "Setting default toolchain to 1.75.0..."
+        if ! rustup default 1.75.0; then
+            error "Failed to set default Rust toolchain"
+        fi
         log "Rust toolchain set to 1.75.0 ✓"
+        
+        # Verify toolchain is active
+        ACTIVE_TOOLCHAIN=$(rustup show active-toolchain | awk '{print $1}')
+        if [[ "$ACTIVE_TOOLCHAIN" != "1.75.0"* ]]; then
+            warn "Active toolchain: $ACTIVE_TOOLCHAIN (expected 1.75.0)"
+        else
+            log "Active toolchain verified: $ACTIVE_TOOLCHAIN ✓"
+        fi
+        
         return
     fi
     
     log "Installing Rust..."
     
     # Install Rust using rustup
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0
+    log "Downloading and installing Rust 1.75.0..."
+    if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0; then
+        error "Failed to install Rust"
+    fi
     
     # Source the environment
-    source ~/.cargo/env
+    setup_rust_environment
+    
+    # Verify rustup is available
+    if ! command_exists rustup; then
+        error "rustup not found after installation"
+    fi
     
     # Add components
-    rustup component add rustfmt clippy
-    rustup target add wasm32-unknown-unknown
+    log "Adding Rust components..."
+    if ! rustup component add rustfmt clippy; then
+        warn "Failed to add some Rust components"
+    fi
+    
+    if ! rustup target add wasm32-unknown-unknown; then
+        warn "Failed to add wasm32 target"
+    fi
     
     # Verify installation
     if command_exists rustc && command_exists cargo; then
-        log "Rust $(rustc --version | awk '{print $2}') installed ✓"
-        log "Cargo $(cargo --version | awk '{print $2}') installed ✓"
+        RUST_VERSION=$(rustc --version | awk '{print $2}')
+        CARGO_VERSION=$(cargo --version | awk '{print $2}')
+        log "Rust $RUST_VERSION installed ✓"
+        log "Cargo $CARGO_VERSION installed ✓"
+        
+        # Show toolchain info
+        log "Active toolchain: $(rustup show active-toolchain)"
     else
-        error "Failed to install Rust"
+        error "Failed to verify Rust installation"
     fi
 }
 
-# Function to setup repository
+# Function to setup and update repository
 setup_repository() {
-    log "Setting up repository..."
+    log "Setting up and updating repository..."
     
     REPO_URL="https://github.com/Zeeeepa/bloop.git"
     BRANCH="codegen-bot/upgrade-bloop-local-port-3000-1757524345"
     TARGET_DIR="bloop"
     
     if [ -d "$TARGET_DIR" ]; then
-        read -p "Directory '$TARGET_DIR' exists. Remove and re-clone? (y/n): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "$TARGET_DIR"
-            log "Removed existing directory ✓"
-        else
-            log "Using existing directory..."
-            cd "$TARGET_DIR"
-            git fetch origin
-            git checkout "$BRANCH"
-            git pull origin "$BRANCH"
-            log "Updated existing repository ✓"
-            return
+        log "Existing repository found, updating..."
+        cd "$TARGET_DIR"
+        
+        # Check if we're in a git repository
+        if [ ! -d ".git" ]; then
+            error "Directory exists but is not a git repository. Please remove it manually."
         fi
+        
+        # Save current state
+        log "Saving current state..."
+        git stash push -m "Auto-stash before update $(date)" || true
+        
+        # Fetch latest changes
+        log "Fetching latest changes..."
+        if ! git fetch origin; then
+            error "Failed to fetch from remote repository. Check network connection."
+        fi
+        
+        # Check if branch exists locally
+        if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+            log "Local branch exists, switching to it..."
+            git checkout "$BRANCH"
+        else
+            log "Creating local branch from remote..."
+            git checkout -b "$BRANCH" "origin/$BRANCH"
+        fi
+        
+        # Pull latest changes
+        log "Pulling latest changes..."
+        if ! git pull origin "$BRANCH"; then
+            warn "Pull failed, attempting to reset to remote state..."
+            git reset --hard "origin/$BRANCH"
+        fi
+        
+        log "Repository updated successfully ✓"
+    else
+        log "Cloning repository..."
+        if ! git clone "$REPO_URL" "$TARGET_DIR"; then
+            error "Failed to clone repository. Check network connection and repository access."
+        fi
+        
+        cd "$TARGET_DIR"
+        
+        # Checkout specific branch
+        log "Checking out branch: $BRANCH"
+        if ! git checkout "$BRANCH"; then
+            error "Failed to checkout branch: $BRANCH"
+        fi
+        
+        log "Repository cloned successfully ✓"
     fi
     
-    # Clone repository
-    git clone "$REPO_URL" "$TARGET_DIR"
-    cd "$TARGET_DIR"
+    # Verify we're on the correct branch
+    CURRENT_BRANCH=$(git branch --show-current)
+    if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
+        error "Not on expected branch. Current: $CURRENT_BRANCH, Expected: $BRANCH"
+    fi
     
-    # Checkout specific branch
-    git checkout "$BRANCH"
-    
+    # Show current commit info
+    log "Current commit: $(git rev-parse --short HEAD)"
     log "Repository setup completed ✓"
 }
 
@@ -297,8 +448,24 @@ EOF
 build_rust_backend() {
     log "Building Rust backend (PRODUCTION MODE)..."
     
+    # Ensure we're in the right directory
+    if [ ! -d "server/bleep" ]; then
+        error "server/bleep directory not found. Are you in the correct repository?"
+    fi
+    
+    # Setup Rust environment before building
+    setup_rust_environment
+    
+    # Verify Rust toolchain
+    if ! command_exists cargo; then
+        error "Cargo not found. Rust installation may have failed."
+    fi
+    
+    log "Using Rust toolchain: $(rustup show active-toolchain 2>/dev/null || echo 'unknown')"
+    
     # Clean previous builds thoroughly
     cd server/bleep
+    log "Cleaning previous builds..."
     cargo clean
     
     # Clean problematic cached dependencies
@@ -317,21 +484,47 @@ build_rust_backend() {
         # Set environment variables for better compilation
         export CARGO_NET_RETRY=10
         export CARGO_HTTP_TIMEOUT=300
+        export CARGO_HTTP_MULTIPLEXING=false
         export RUST_BACKTRACE=1
+        export CARGO_INCREMENTAL=0
         
-        if timeout 1800 cargo build --release --verbose; then
+        # Show some build info
+        log "Cargo version: $(cargo --version)"
+        log "Build target: $(rustc --version --verbose | grep host | cut -d' ' -f2)"
+        
+        # Start the build with timeout
+        log "Starting build (timeout: 30 minutes)..."
+        if timeout 1800 cargo build --release --verbose 2>&1 | tee build.log; then
             log "Rust backend built successfully ✓"
             
-            # Verify the binary was created
+            # Verify the binary was created and is executable
             if [ -f "target/release/bleep" ]; then
-                log "Binary verification successful ✓"
-                cd ../..
-                return 0
+                if [ -x "target/release/bleep" ]; then
+                    # Test binary execution
+                    if ./target/release/bleep --help >/dev/null 2>&1; then
+                        log "Binary verification successful ✓"
+                        cd ../..
+                        return 0
+                    else
+                        error "Binary exists but is not functional"
+                    fi
+                else
+                    error "Binary exists but is not executable"
+                fi
             else
                 error "Binary not found after successful build"
             fi
         else
             warn "Build attempt $attempt failed"
+            
+            # Show last few lines of build log for debugging
+            if [ -f "build.log" ]; then
+                warn "Last 10 lines of build output:"
+                tail -10 build.log | while read line; do
+                    warn "  $line"
+                done
+            fi
+            
             if [ $attempt -lt $max_attempts ]; then
                 log "Deep cleaning and retrying..."
                 cargo clean
@@ -341,8 +534,12 @@ build_rust_backend() {
                 rm -rf ~/.cargo/registry/cache/* 2>/dev/null || true
                 rm -rf ~/.cargo/registry/src/* 2>/dev/null || true
                 
+                # Clean build artifacts
+                rm -f build.log
+                
                 # Wait before retry
-                sleep 5
+                log "Waiting 10 seconds before retry..."
+                sleep 10
             fi
             ((attempt++))
         fi
@@ -489,6 +686,11 @@ trap cleanup EXIT INT TERM
 main() {
     log "🚀 Starting Bloop PRODUCTION Installation and Deployment"
     log "⚠️  NO MOCK SERVERS - PRODUCTION ONLY DEPLOYMENT"
+    log "📋 Full automation: git fetch/pull, environment setup, build, deploy"
+    echo
+    
+    # Validate environment first
+    validate_environment
     echo
     
     # Check system requirements
@@ -507,11 +709,11 @@ main() {
     install_rust
     echo
     
-    # Setup repository
+    # Setup and update repository (includes git fetch/pull)
     setup_repository
     echo
     
-    # Install dependencies
+    # Install project dependencies
     install_dependencies
     echo
     
@@ -528,8 +730,15 @@ main() {
     # Start production services
     start_production_services
     
+    # Final status
+    echo
+    log "🎉 DEPLOYMENT COMPLETED SUCCESSFULLY!"
+    log "📊 Services are running and validated"
+    log "🔗 Access your application at: http://localhost:3000"
+    echo
+    
     # Keep script running
-    log "Press Ctrl+C to stop all services"
+    log "Press Ctrl+C to stop all services and exit"
     wait
 }
 
