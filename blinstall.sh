@@ -478,15 +478,8 @@ build_rust_backend() {
     log "Cleaning previous builds..."
     cargo clean
     
-    # Create database with proper schema for SQLx
-    if [ ! -f "bloop.db" ]; then
-        log "Creating database with proper schema for SQLx..."
-        # Create empty database
-        sqlite3 bloop.db "SELECT 1;" || true
-        
-        # Skip database migrations since we're building without database features
-        log "Skipping database migrations (building without database features)..."
-    fi
+    # Skip database creation since we're building without database features
+    log "Skipping database creation (building without database features)..."
     
     # Clean problematic cached dependencies
     log "Cleaning dependency cache..."
