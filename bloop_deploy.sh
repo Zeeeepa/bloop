@@ -228,12 +228,18 @@ fix_cargo_dependencies() {
     # Only add patch if Cargo.toml exists and is valid (workspace or package)
     if [ -f "Cargo.toml" ] && (grep -q "\[workspace\]" Cargo.toml || grep -q "\[package\]" Cargo.toml); then
         # Add patch for time crate compilation issue
-        if ! grep -q "\[patch.crates-io\]" Cargo.toml; then
-            log "📝 Adding time crate patch to fix compilation issue..."
-            echo "" >> Cargo.toml
-            echo "[patch.crates-io]" >> Cargo.toml
-            echo "# Fix time crate compilation issue with newer Rust versions" >> Cargo.toml
-            echo 'time = { git = "https://github.com/time-rs/time", branch = "main" }' >> Cargo.toml
+        if ! grep -q 'time.*=.*git.*time-rs/time' Cargo.toml; then
+            if grep -q "\[patch.crates-io\]" Cargo.toml; then
+                log "📝 Adding time crate patch to existing [patch.crates-io] section..."
+                # Find the first [patch.crates-io] section and add after it
+                awk '/\[patch\.crates-io\]/ && !found {print; print "# Fix time crate compilation issue with newer Rust versions"; print "time = { git = \"https://github.com/time-rs/time\", branch = \"main\" }"; found=1; next} 1' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
+            else
+                log "📝 Creating new [patch.crates-io] section with time crate patch..."
+                echo "" >> Cargo.toml
+                echo "[patch.crates-io]" >> Cargo.toml
+                echo "# Fix time crate compilation issue with newer Rust versions" >> Cargo.toml
+                echo 'time = { git = "https://github.com/time-rs/time", branch = "main" }' >> Cargo.toml
+            fi
             log "✅ Added time crate patch to Cargo.toml"
         else
             log "✅ Time crate patch already exists"
