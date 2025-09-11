@@ -61,7 +61,7 @@ main() {
     # Step 3: Verify installation
     log "✅ Verifying installation..."
     
-    if [ -f "server/target/release/bleep" ] || [ -f "server/target/debug/bleep" ]; then
+    if [ -f "server/bleep/target/release/bleep" ] || [ -f "server/bleep/target/debug/bleep" ]; then
         log "✅ Backend binary found"
     else
         error "Backend binary not found"
@@ -193,4 +193,3 @@ EOF
 
 # Run main function
 main "$@"
-

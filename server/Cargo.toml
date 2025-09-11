@@ -1,4 +1,0 @@
-
-[patch.crates-io]
-# Fix time crate compilation issue with newer Rust versions
-time = { git = "https://github.com/time-rs/time", branch = "main" }

@@ -265,7 +265,7 @@ EOF
 build_rust_backend() {
     log "🏗️ Building Rust backend with multiple fallback strategies..."
     
-    cd server || error "Failed to enter server directory"
+    cd server/bleep || error "Failed to enter server/bleep directory"
     
     # Fix Cargo dependencies first
     # Skip Cargo.toml patching to avoid corruption
@@ -294,7 +294,7 @@ build_rust_backend() {
     if timeout 1800 cargo build --release --no-default-features --features "color-eyre" --verbose 2>&1 | tee build.log; then
         if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
             log "✅ Strategy 1 SUCCESS: Release build completed"
-            cd ..
+            cd ../..
             return 0
         fi
     fi
@@ -307,7 +307,7 @@ build_rust_backend() {
     if timeout 1800 cargo build --release --no-default-features --verbose 2>&1 | tee build.log; then
         if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
             log "✅ Strategy 2 SUCCESS: Minimal release build completed"
-            cd ..
+            cd ../..
             return 0
         fi
     fi
@@ -323,7 +323,7 @@ build_rust_backend() {
             mkdir -p target/release
             cp target/debug/bleep target/release/bleep
             log "✅ Strategy 3 SUCCESS: Debug build completed"
-            cd ..
+            cd ../..
             return 0
         fi
     fi
@@ -337,7 +337,7 @@ build_rust_backend() {
     if timeout 1800 cargo build --release --no-default-features --features "cli" --verbose 2>&1 | tee build.log; then
         if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
             log "✅ Strategy 4 SUCCESS: CLI-only build completed"
-            cd ..
+            cd ../..
             return 0
         fi
     fi
@@ -350,7 +350,7 @@ build_rust_backend() {
     if timeout 2400 cargo build --release --no-default-features -j 1 --verbose 2>&1 | tee build.log; then
         if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
             log "✅ Strategy 5 SUCCESS: Single-threaded build completed"
-            cd ..
+            cd ../..
             return 0
         fi
     fi

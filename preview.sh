@@ -88,7 +88,7 @@ main() {
     
     # Check if backend binary exists
     log "🔍 Checking for backend binary..."
-    cd server
+    cd server/bleep
     
     BINARY=""
     if [ -f "target/release/bleep" ]; then
@@ -102,7 +102,7 @@ main() {
     fi
     
     # Check if config exists
-    cd ..
+    cd ../..
     if [ ! -f "local_config.json" ]; then
         log "📝 Creating default configuration..."
         cat > local_config.json << 'EOF'
@@ -127,10 +127,10 @@ EOF
     
     # Start backend
     log "🔧 Starting Rust backend..."
-    cd server
-    nohup ./$BINARY --config-file=../local_config.json > ../backend.log 2>&1 &
+    cd server/bleep
+    nohup ./$BINARY --config-file=../../local_config.json > ../../backend.log 2>&1 &
     BACKEND_PID=$!
-    cd ..
+    cd ../..
     
     # Wait for backend to be ready
     if wait_for_service "http://localhost:7878/health" "Backend"; then
@@ -207,4 +207,3 @@ trap 'echo ""; log "👋 Exiting preview. Services continue running in backgroun
 
 # Run main function
 main "$@"
-
