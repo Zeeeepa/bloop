@@ -456,22 +456,38 @@ build_rust_backend() {
     # Setup Rust environment before building
     setup_rust_environment
     
+    # Set SQLx environment variables globally
+    export SQLX_OFFLINE=true
+    export DATABASE_URL="sqlite:bloop.db"
+    
     # Verify Rust toolchain
     if ! command_exists cargo; then
         error "Cargo not found. Rust installation may have failed."
     fi
     
     log "Using Rust toolchain: $(rustup show active-toolchain 2>/dev/null || echo 'unknown')"
+    log "SQLx offline mode: $SQLX_OFFLINE"
     
     # Clean previous builds thoroughly
     cd server/bleep
     log "Cleaning previous builds..."
     cargo clean
     
-    # Create a minimal database for SQLx if it doesn't exist
+    # Create database with proper schema for SQLx
     if [ ! -f "bloop.db" ]; then
-        log "Creating minimal database for SQLx..."
-        sqlite3 bloop.db "CREATE TABLE IF NOT EXISTS _dummy (id INTEGER);" || true
+        log "Creating database with proper schema for SQLx..."
+        # Create empty database
+        sqlite3 bloop.db "SELECT 1;" || true
+        
+        # Run migrations if sqlx-cli is available
+        if command_exists sqlx; then
+            log "Running database migrations..."
+            sqlx migrate run --database-url "sqlite:bloop.db" || true
+        else
+            log "Installing sqlx-cli for migrations..."
+            cargo install sqlx-cli --no-default-features --features sqlite || true
+            sqlx migrate run --database-url "sqlite:bloop.db" || true
+        fi
     fi
     
     # Clean problematic cached dependencies
@@ -502,6 +518,7 @@ build_rust_backend() {
         
         # Start the build with timeout
         log "Starting build (timeout: 30 minutes)..."
+        log "Building with proper database schema..."
         if timeout 1800 cargo build --release --verbose 2>&1 | tee build.log; then
             log "Rust backend built successfully ✓"
             
