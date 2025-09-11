@@ -714,6 +714,14 @@ main() {
     log "📋 Full automation: git fetch/pull, environment setup, build, deploy"
     echo
     
+    # Always pull latest changes first if we're in a git repository
+    if [ -d ".git" ]; then
+        log "🔄 Pulling latest changes from current repository..."
+        git fetch origin || log_warn "Failed to fetch from origin"
+        git pull origin "$(git branch --show-current)" || log_warn "Failed to pull latest changes"
+        echo
+    fi
+    
     # Validate environment first
     validate_environment
     echo
