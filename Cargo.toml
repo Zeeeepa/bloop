@@ -21,6 +21,3 @@ strip = "none"
 
 [patch.crates-io]
 esaxx-rs = { git = "https://github.com/bloopai/esaxx-rs" }
-
-[patch."https://github.com/bloopai/llm"]
-llm = { git = "https://github.com/bloopai/llm", branch = "main" }
