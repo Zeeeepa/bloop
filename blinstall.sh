@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Bloop Complete Installation and Deployment Script
-# Comprehensive dependency installer, checker, and deployer
+# Bloop Production Installation and Deployment Script
+# Comprehensive dependency installer, checker, and production deployer
+# NO MOCK SERVERS - PRODUCTION ONLY
 
 set -e  # Exit on any error
 
@@ -294,175 +295,168 @@ EOF
 
 # Function to build Rust backend
 build_rust_backend() {
-    log "Building Rust backend..."
+    log "Building Rust backend (PRODUCTION MODE)..."
     
-    # Clean previous builds
+    # Clean previous builds thoroughly
     cd server/bleep
     cargo clean
     
-    # Build with retries
-    local max_attempts=3
+    # Clean problematic cached dependencies
+    log "Cleaning dependency cache..."
+    rm -rf ~/.cargo/git/db/llm-* 2>/dev/null || true
+    rm -rf ~/.cargo/git/db/tree-sitter-* 2>/dev/null || true
+    rm -rf ~/.cargo/registry/cache 2>/dev/null || true
+    
+    # Build with enhanced retries and better error handling
+    local max_attempts=5
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        log "Build attempt $attempt/$max_attempts..."
+        log "Production build attempt $attempt/$max_attempts..."
         
-        if cargo build --release; then
+        # Set environment variables for better compilation
+        export CARGO_NET_RETRY=10
+        export CARGO_HTTP_TIMEOUT=300
+        export RUST_BACKTRACE=1
+        
+        if timeout 1800 cargo build --release --verbose; then
             log "Rust backend built successfully ✓"
-            cd ../..
-            return 0
+            
+            # Verify the binary was created
+            if [ -f "target/release/bleep" ]; then
+                log "Binary verification successful ✓"
+                cd ../..
+                return 0
+            else
+                error "Binary not found after successful build"
+            fi
         else
             warn "Build attempt $attempt failed"
             if [ $attempt -lt $max_attempts ]; then
-                log "Cleaning and retrying..."
+                log "Deep cleaning and retrying..."
                 cargo clean
-                # Clean cargo cache for problematic dependencies
-                rm -rf ~/.cargo/git/db/llm-*
-                rm -rf ~/.cargo/registry/cache
+                
+                # More aggressive cache cleaning
+                rm -rf ~/.cargo/git/db/* 2>/dev/null || true
+                rm -rf ~/.cargo/registry/cache/* 2>/dev/null || true
+                rm -rf ~/.cargo/registry/src/* 2>/dev/null || true
+                
+                # Wait before retry
+                sleep 5
             fi
             ((attempt++))
         fi
     done
     
     cd ../..
-    error "Failed to build Rust backend after $max_attempts attempts"
+    error "CRITICAL: Failed to build Rust backend after $max_attempts attempts. This is a production deployment - no fallbacks available."
 }
 
-# Function to create mock server
-create_mock_server() {
-    log "Creating mock server..."
+# Function to validate production readiness
+validate_production_readiness() {
+    log "Validating production readiness..."
     
-    cat > mock-server.js << 'EOF'
-const express = require('express');
-const cors = require('cors');
-const app = express();
-const port = 7878;
-
-app.use(cors());
-app.use(express.json());
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Mock server is running' });
-});
-
-// Search endpoint
-app.post('/q', (req, res) => {
-  res.json({
-    data: [
-      {
-        relative_path: "README.md",
-        repo_name: "bloop",
-        repo_ref: "main",
-        lang: "markdown",
-        branches: ["main"],
-        indexed: true,
-        data: {
-          kind: "file_result",
-          file_result: {
-            path: "README.md",
-            repo_name: "bloop",
-            repo_ref: "main",
-            lang: "markdown",
-            branches: ["main"],
-            indexed: true,
-            hoverables: [],
-            symbols: []
-          }
-        }
-      }
-    ],
-    metadata: {
-      total_results: 1
-    }
-  });
-});
-
-// Repository list endpoint
-app.get('/repos', (req, res) => {
-  res.json([
-    {
-      name: "bloop",
-      ref: "main",
-      indexed: true,
-      last_index: new Date().toISOString()
-    }
-  ]);
-});
-
-app.listen(port, '127.0.0.1', () => {
-  console.log(`Mock server running at http://127.0.0.1:${port}`);
-});
-EOF
-    
-    # Install express and cors if not already installed
-    if ! npm list express >/dev/null 2>&1; then
-        npm install express cors
+    # Check if Rust backend binary exists
+    if [ ! -f "server/bleep/target/release/bleep" ]; then
+        error "CRITICAL: Rust backend binary not found. Production deployment requires successful Rust build."
     fi
     
-    log "Mock server created ✓"
+    # Test binary execution
+    if ! ./server/bleep/target/release/bleep --help >/dev/null 2>&1; then
+        error "CRITICAL: Rust backend binary is not executable or corrupted."
+    fi
+    
+    # Check configuration file
+    if [ ! -f "local_config.json" ]; then
+        error "CRITICAL: Configuration file missing."
+    fi
+    
+    # Validate Node.js dependencies
+    if ! npm list >/dev/null 2>&1; then
+        error "CRITICAL: Node.js dependencies not properly installed."
+    fi
+    
+    log "Production readiness validation passed ✓"
 }
 
-# Function to start services
-start_services() {
-    log "Starting services..."
+# Function to start production services
+start_production_services() {
+    log "Starting production services..."
     
-    # Ask user for backend preference
-    echo
-    echo "Choose backend option:"
-    echo "1) Rust backend (full functionality)"
-    echo "2) Mock server (development/testing)"
-    read -p "Enter choice (1 or 2): " -n 1 -r
-    echo
+    # Validate production readiness first
+    validate_production_readiness
     
-    if [[ $REPLY == "1" ]]; then
-        # Check if Rust backend binary exists
-        if [ -f "server/bleep/target/release/bleep" ]; then
-            log "Starting Rust backend..."
-            cd server/bleep
-            ./target/release/bleep --config-file=../../local_config.json &
-            BACKEND_PID=$!
-            cd ../..
-            log "Rust backend started (PID: $BACKEND_PID) ✓"
-        else
-            error "Rust backend binary not found. Please build first or use mock server."
+    # Start Rust backend
+    log "Starting Rust backend (PRODUCTION)..."
+    cd server/bleep
+    
+    # Start backend with proper logging and error handling
+    nohup ./target/release/bleep --config-file=../../local_config.json > ../../backend.log 2>&1 &
+    BACKEND_PID=$!
+    cd ../..
+    
+    # Verify backend started successfully
+    sleep 5
+    if ! kill -0 $BACKEND_PID 2>/dev/null; then
+        error "CRITICAL: Rust backend failed to start. Check backend.log for details."
+    fi
+    
+    # Test backend health
+    local health_check_attempts=0
+    while [ $health_check_attempts -lt 30 ]; do
+        if curl -s http://127.0.0.1:7878/health >/dev/null 2>&1; then
+            log "Backend health check passed ✓"
+            break
         fi
-    else
-        log "Starting mock server..."
-        node mock-server.js &
-        BACKEND_PID=$!
-        log "Mock server started (PID: $BACKEND_PID) ✓"
+        sleep 2
+        ((health_check_attempts++))
+    done
+    
+    if [ $health_check_attempts -eq 30 ]; then
+        error "CRITICAL: Backend health check failed after 60 seconds"
     fi
+    
+    log "Rust backend started successfully (PID: $BACKEND_PID) ✓"
     
     # Start frontend
-    log "Starting frontend..."
-    npm run start-web &
+    log "Starting frontend (PRODUCTION)..."
+    nohup npm run start-web > frontend.log 2>&1 &
     FRONTEND_PID=$!
     
-    # Wait a moment for services to start
-    sleep 3
+    # Wait for frontend to start
+    sleep 10
     
-    # Display information
+    # Verify frontend started
+    if ! kill -0 $FRONTEND_PID 2>/dev/null; then
+        error "CRITICAL: Frontend failed to start. Check frontend.log for details."
+    fi
+    
+    # Display production information
     echo
-    log "🚀 Bloop is now running!"
+    log "🚀 BLOOP PRODUCTION DEPLOYMENT SUCCESSFUL!"
     echo
-    info "Frontend: http://localhost:3000"
-    info "Backend API: http://localhost:7878"
-    info "Health Check: http://localhost:7878/health"
+    info "🌐 Frontend: http://localhost:3000"
+    info "🔧 Backend API: http://localhost:7878"
+    info "❤️  Health Check: http://localhost:7878/health"
     echo
-    info "Backend PID: $BACKEND_PID"
-    info "Frontend PID: $FRONTEND_PID"
+    info "📊 Process Information:"
+    info "   Backend PID: $BACKEND_PID"
+    info "   Frontend PID: $FRONTEND_PID"
     echo
-    info "To stop services:"
-    info "  kill $BACKEND_PID $FRONTEND_PID"
-    info "  or use: pkill -f 'bleep\\|mock-server\\|vite'"
+    info "📝 Log Files:"
+    info "   Backend: $(pwd)/backend.log"
+    info "   Frontend: $(pwd)/frontend.log"
+    echo
+    info "🛑 To stop services:"
+    info "   kill $BACKEND_PID $FRONTEND_PID"
+    info "   or use: pkill -f 'bleep|vite'"
     echo
     
     # Save PIDs for later cleanup
     echo "$BACKEND_PID" > .backend.pid
     echo "$FRONTEND_PID" > .frontend.pid
     
-    log "Services started successfully ✓"
+    log "Production services started successfully ✓"
 }
 
 # Function to cleanup on exit
@@ -483,7 +477,6 @@ cleanup() {
     
     # Kill any remaining processes
     pkill -f 'bleep' 2>/dev/null || true
-    pkill -f 'mock-server' 2>/dev/null || true
     pkill -f 'vite' 2>/dev/null || true
     
     log "Cleanup completed"
@@ -494,7 +487,8 @@ trap cleanup EXIT INT TERM
 
 # Main execution
 main() {
-    log "🚀 Starting Bloop Complete Installation and Deployment"
+    log "🚀 Starting Bloop PRODUCTION Installation and Deployment"
+    log "⚠️  NO MOCK SERVERS - PRODUCTION ONLY DEPLOYMENT"
     echo
     
     # Check system requirements
@@ -525,24 +519,14 @@ main() {
     create_configuration
     echo
     
-    # Ask if user wants to build Rust backend
-    read -p "Build Rust backend? (y/n, 'n' will create mock server): " -n 1 -r
+    # Build Rust backend (MANDATORY for production)
+    log "Building Rust backend (PRODUCTION REQUIREMENT)..."
+    build_rust_backend
+    log "Rust backend ready for production ✓"
     echo
     
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        if build_rust_backend; then
-            log "Rust backend ready ✓"
-        else
-            warn "Rust backend build failed, creating mock server as fallback"
-            create_mock_server
-        fi
-    else
-        create_mock_server
-    fi
-    echo
-    
-    # Start services
-    start_services
+    # Start production services
+    start_production_services
     
     # Keep script running
     log "Press Ctrl+C to stop all services"

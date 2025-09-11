@@ -18,7 +18,7 @@ ndarray = { version = "0.15" }
 ort = { git = "https://github.com/bloopai/ort", branch = "env-builder-telemetry", features = ["load-dynamic"] }
 
 [target.aarch64-apple-darwin.dependencies]
-llm = { git = "https://github.com/bloopai/llm", branch = "main", default-features = false, features = ["bert"] }
+llm = { git = "https://github.com/bloopai/llm", branch = "main", default-features = false }
 
 [[bin]]
 name = "bleep"
