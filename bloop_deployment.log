@@ -1,0 +1,8 @@
+[0;32m[2025-09-11 01:00:32] Starting Bloop deployment script v2.0[0m
+[0;32m[2025-09-11 01:00:32] Deployment started at Thu Sep 11 01:00:32 UTC 2025[0m
+[0;32m[2025-09-11 01:00:32] Checking system requirements...[0m
+[0;32m[2025-09-11 01:00:33] Node.js version 22.14.0 ✓[0m
+[0;32m[2025-09-11 01:00:33] npm 10.9.2 ✓[0m
+[0;32m[2025-09-11 01:00:33] git 2.39.5 ✓[0m
+[0;32m[2025-09-11 01:00:33] All system requirements satisfied ✓[0m
+[0;32m[2025-09-11 01:01:31] Cleaning up...[0m

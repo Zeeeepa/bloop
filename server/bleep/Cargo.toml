@@ -6,12 +6,13 @@ default-run = "bleep"
 build = "build.rs"
 
 [features]
-default = ["ee-pro"]
+default = ["ee-pro", "database"]
 debug = ["console-subscriber", "histogram"]
 onnx = []
 metal = []
 ee-pro = []
 ee-cloud = ["ee-pro", "color-eyre"]
+database = ["dep:sqlx"]
 
 [target.'cfg(not(all(target_os = "macos", target_arch = "aarch64")))'.dependencies]
 ndarray = { version = "0.15" }
@@ -57,7 +58,7 @@ regex = "1.9.5"
 regex-syntax = "0.6.29"
 fuzzy-matcher = "0.3.7"
 uuid = { version = "1.4.1", features = ["v4", "fast-rng", "serde"] }
-sqlx = { version = "0.6.3", features = ["sqlite", "migrate", "offline", "runtime-tokio-rustls", "chrono", "uuid"] }
+sqlx = { version = "0.6.3", features = ["sqlite", "migrate", "offline", "runtime-tokio-rustls", "chrono", "uuid"], optional = true }
 
 # for debugging
 console-subscriber = { version = "0.1.10", optional = true }

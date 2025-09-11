@@ -20,6 +20,7 @@ use color_eyre as _;
 #[cfg(any(bench, test))]
 use criterion as _;
 
+#[cfg(feature = "database")]
 use db::SqlDb;
 #[cfg(any(bench, test))]
 use git_version as _;
@@ -33,8 +34,11 @@ use user::UserProfile;
 
 use crate::{
     background::SyncQueue, indexes::Indexes, remotes::CognitoGithubTokenBundle, semantic::Semantic,
-    state::RepositoryPool, webserver::middleware::User,
+    state::RepositoryPool,
 };
+
+#[cfg(feature = "database")]
+use crate::webserver::middleware::User;
 use anyhow::{bail, Context, Result};
 use axum::extract::FromRef;
 
@@ -62,6 +66,7 @@ mod llm_gateway;
 mod remotes;
 mod repo;
 mod scraper;
+#[cfg(feature = "database")]
 mod webserver;
 
 mod ee;
@@ -118,6 +123,7 @@ pub struct Application {
     user_profiles: PersistedState<scc::HashMap<String, UserProfile>>,
 
     /// SQL database for persistent storage
+    #[cfg(feature = "database")]
     pub sql: SqlDb,
 
     /// Analytics backend -- may be unintialized

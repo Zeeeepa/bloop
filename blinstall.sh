@@ -518,8 +518,8 @@ build_rust_backend() {
         
         # Start the build with timeout
         log "Starting build (timeout: 30 minutes)..."
-        log "Building with proper database schema..."
-        if timeout 1800 cargo build --release --verbose 2>&1 | tee build.log; then
+        log "Building without database features to avoid SQLx issues..."
+        if timeout 1800 cargo build --release --no-default-features --features "color-eyre" --verbose 2>&1 | tee build.log; then
             log "Rust backend built successfully ✓"
             
             # Verify the binary was created and is executable

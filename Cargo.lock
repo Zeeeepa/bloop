@@ -7962,7 +7962,7 @@ dependencies = [
 [[package]]
 name = "tree-sitter-COBOL"
 version = "0.0.1"
-source = "git+https://github.com/nerdypepper/tree-sitter-cobol#8ba6692cc3c2bded0693d198936c6e26e6501230"
+source = "git+https://github.com/bloopai/tree-sitter-cobol#8ba6692cc3c2bded0693d198936c6e26e6501230"
 dependencies = [
  "cc",
  "tree-sitter",
