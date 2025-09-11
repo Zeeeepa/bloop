@@ -468,6 +468,12 @@ build_rust_backend() {
     log "Cleaning previous builds..."
     cargo clean
     
+    # Create a minimal database for SQLx if it doesn't exist
+    if [ ! -f "bloop.db" ]; then
+        log "Creating minimal database for SQLx..."
+        sqlite3 bloop.db "CREATE TABLE IF NOT EXISTS _dummy (id INTEGER);" || true
+    fi
+    
     # Clean problematic cached dependencies
     log "Cleaning dependency cache..."
     rm -rf ~/.cargo/git/db/llm-* 2>/dev/null || true
@@ -487,6 +493,8 @@ build_rust_backend() {
         export CARGO_HTTP_MULTIPLEXING=false
         export RUST_BACKTRACE=1
         export CARGO_INCREMENTAL=0
+        export SQLX_OFFLINE=true
+        export DATABASE_URL="sqlite:bloop.db"
         
         # Show some build info
         log "Cargo version: $(cargo --version)"
