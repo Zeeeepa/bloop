@@ -9,6 +9,16 @@ set -e  # Exit on any error
 set -u  # Exit on undefined variables
 set -o pipefail  # Exit on pipe failures
 
+# CRITICAL: Self-update mechanism - pull latest script before execution
+if [ -d ".git" ] && [ "$0" = "./blinstall.sh" ]; then
+    echo "🔄 Self-updating script to latest version..."
+    git fetch origin >/dev/null 2>&1 || true
+    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
+    git pull origin "$CURRENT_BRANCH" >/dev/null 2>&1 || true
+    echo "✅ Script updated. Restarting with latest version..."
+    exec "$0" "$@"
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -152,7 +162,8 @@ install_system_dependencies() {
                 libprotobuf-dev \
                 ca-certificates \
                 gnupg \
-                lsb-release
+                lsb-release \
+                sqlite3
             log "System dependencies installed ✓"
         elif command_exists yum; then
             sudo yum update -y
@@ -165,7 +176,8 @@ install_system_dependencies() {
                 cmake \
                 clang \
                 protobuf-compiler \
-                protobuf-devel
+                protobuf-devel \
+                sqlite
             log "System dependencies installed ✓"
         else
             warn "Package manager not detected. Please install dependencies manually."
