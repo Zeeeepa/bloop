@@ -225,8 +225,8 @@ deep_clean() {
 fix_cargo_dependencies() {
     log "🔧 Fixing Cargo.toml for compatibility issues..."
     
-    # Only add patch if Cargo.toml exists and is valid
-    if [ -f "Cargo.toml" ] && grep -q "\[package\]" Cargo.toml; then
+    # Only add patch if Cargo.toml exists and is valid (workspace or package)
+    if [ -f "Cargo.toml" ] && (grep -q "\[workspace\]" Cargo.toml || grep -q "\[package\]" Cargo.toml); then
         # Add patch for time crate compilation issue
         if ! grep -q "\[patch.crates-io\]" Cargo.toml; then
             log "📝 Adding time crate patch to fix compilation issue..."
@@ -268,10 +268,10 @@ EOF
 build_rust_backend() {
     log "🏗️ Building Rust backend with multiple fallback strategies..."
     
-    cd server/bleep || error "Failed to enter server/bleep directory"
-    
-    # Fix Cargo dependencies first
+    # Fix Cargo dependencies at workspace root first
     fix_cargo_dependencies
+    
+    cd server/bleep || error "Failed to enter server/bleep directory"
     
     # Force stable toolchain
     force_rust_stable
