@@ -301,11 +301,11 @@ build_rust_backend() {
     log "🔧 Cargo version: $(cargo --version)"
     log "🔧 Rust version: $(rustc --version)"
     
-    # Strategy 1: Release build without database features
-    log "📦 Strategy 1: Release build without database features..."
-    if timeout 1800 cargo build --release --no-default-features --features "color-eyre" --verbose 2>&1 | tee build.log; then
+    # Strategy 1: Release build with default features (includes webserver)
+    log "📦 Strategy 1: Release build with default features..."
+    if timeout 1800 cargo build --release --features "color-eyre" --verbose 2>&1 | tee build.log; then
         if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
-            log "✅ Strategy 1 SUCCESS: Release build completed"
+            log "✅ Strategy 1 SUCCESS: Release build with default features completed"
             cd ../..
             return 0
         fi
@@ -316,7 +316,7 @@ build_rust_backend() {
     
     # Strategy 2: Release build with minimal features
     log "📦 Strategy 2: Release build with minimal features..."
-    if timeout 1800 cargo build --release --no-default-features --verbose 2>&1 | tee build.log; then
+    if timeout 1800 cargo build --release --no-default-features --features "color-eyre" --verbose 2>&1 | tee build.log; then
         if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
             log "✅ Strategy 2 SUCCESS: Minimal release build completed"
             cd ../..
