@@ -21,3 +21,4 @@ strip = "none"
 
 [patch.crates-io]
 esaxx-rs = { git = "https://github.com/bloopai/esaxx-rs" }
+time = "=0.3.36"
