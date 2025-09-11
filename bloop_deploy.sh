@@ -277,6 +277,10 @@ build_rust_backend() {
     # Fix Cargo dependencies at workspace root first
     fix_cargo_dependencies
     
+    # Update Cargo.lock to use patched dependencies
+    log "🔄 Updating Cargo.lock to use patched dependencies..."
+    cargo update time || log "⚠️ Failed to update time crate, continuing..."
+    
     cd server/bleep || error "Failed to enter server/bleep directory"
     
     # Force stable toolchain
