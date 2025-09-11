@@ -229,11 +229,14 @@ fix_cargo_dependencies() {
     if [ -f "Cargo.toml" ] && grep -q "\[package\]" Cargo.toml; then
         # Add patch for time crate compilation issue
         if ! grep -q "\[patch.crates-io\]" Cargo.toml; then
+            log "📝 Adding time crate patch to fix compilation issue..."
             echo "" >> Cargo.toml
             echo "[patch.crates-io]" >> Cargo.toml
             echo "# Fix time crate compilation issue with newer Rust versions" >> Cargo.toml
             echo 'time = { git = "https://github.com/time-rs/time", branch = "main" }' >> Cargo.toml
-            log "✅ Added time crate patch"
+            log "✅ Added time crate patch to Cargo.toml"
+        else
+            log "✅ Time crate patch already exists"
         fi
     else
         log "⚠️ Cargo.toml not found or invalid, skipping patch"
@@ -268,8 +271,7 @@ build_rust_backend() {
     cd server/bleep || error "Failed to enter server/bleep directory"
     
     # Fix Cargo dependencies first
-    # Skip Cargo.toml patching to avoid corruption
-    log "⚠️ Skipping Cargo.toml patching to avoid file corruption"
+    fix_cargo_dependencies
     
     # Force stable toolchain
     force_rust_stable
