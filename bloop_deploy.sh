@@ -72,7 +72,20 @@ install_system_dependencies() {
             python3-dev \
             python3-pip \
             nodejs \
-            npm
+            npm \
+            libsoup2.4-dev \
+            libsoup-2.4-dev \
+            libwebkit2gtk-4.0-dev \
+            libgtk-3-dev \
+            libgdk-pixbuf2.0-dev \
+            libglib2.0-dev \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            libgdk-pixbuf-2.0-dev \
+            libjavascriptcoregtk-4.0-dev \
+            libappindicator3-dev \
+            librsvg2-dev
         log "✅ System dependencies installed"
     elif command_exists yum; then
         sudo yum update -y
@@ -102,7 +115,16 @@ install_system_dependencies() {
             libxslt-devel \
             python3-devel \
             nodejs \
-            npm
+            npm \
+            libsoup-devel \
+            webkit2gtk3-devel \
+            gtk3-devel \
+            gdk-pixbuf2-devel \
+            glib2-devel \
+            cairo-devel \
+            pango-devel \
+            atk-devel \
+            librsvg2-devel
         log "✅ System dependencies installed"
     else
         error "No supported package manager found (apt-get or yum)"
@@ -164,9 +186,20 @@ configure_git() {
     git config --global http.lowSpeedLimit 0 || true
     git config --global http.lowSpeedTime 999999 || true
     
-    # Initialize git-lfs if available
+    # Initialize and optimize git-lfs if available
     if command_exists git-lfs; then
         git lfs install || warn "Failed to initialize git-lfs"
+        
+        # Configure git-lfs for better performance
+        git config lfs.concurrenttransfers 8 || true
+        git config lfs.batch true || true
+        git config lfs.transfer.maxretries 10 || true
+        
+        # Pull LFS objects if in a git repository
+        if [ -d ".git" ]; then
+            log "📦 Pulling Git LFS objects..."
+            git lfs pull || warn "Failed to pull LFS objects"
+        fi
     fi
     
     log "✅ Git configured for large repositories"
@@ -189,11 +222,51 @@ deep_clean() {
     log "✅ Build environment cleaned"
 }
 
+# Fix Cargo.toml for compatibility issues
+fix_cargo_dependencies() {
+    log "🔧 Fixing Cargo.toml for compatibility issues..."
+    
+    # Add patch for time crate compilation issue
+    if ! grep -q "\[patch.crates-io\]" Cargo.toml; then
+        cat >> Cargo.toml << 'EOF'
+
+[patch.crates-io]
+# Fix time crate compilation issue with newer Rust versions
+time = { git = "https://github.com/time-rs/time", branch = "main" }
+EOF
+        log "✅ Added time crate patch"
+    fi
+    
+    # Create .cargo/config.toml for better build settings
+    mkdir -p .cargo
+    cat > .cargo/config.toml << 'EOF'
+[build]
+jobs = 4
+
+[net]
+retry = 10
+git-fetch-with-cli = true
+
+[http]
+timeout = 600
+multiplexing = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+EOF
+    
+    log "✅ Cargo configuration optimized"
+}
+
 # MULTI-STRATEGY Build Function
 build_rust_backend() {
     log "🏗️ Building Rust backend with multiple fallback strategies..."
     
     cd server || error "Failed to enter server directory"
+    
+    # Fix Cargo dependencies first
+    fix_cargo_dependencies
     
     # Force stable toolchain
     force_rust_stable
@@ -255,11 +328,25 @@ build_rust_backend() {
     log "⚠️ Strategy 3 failed, trying Strategy 4..."
     deep_clean
     
-    # Strategy 4: Single-threaded build
-    log "📦 Strategy 4: Single-threaded build..."
+    # Strategy 4: Build without webkit/tauri dependencies
+    log "📦 Strategy 4: Build without webkit/tauri dependencies..."
+    export CARGO_FEATURE_DISABLE_TAURI=1
+    if timeout 1800 cargo build --release --no-default-features --features "cli" --verbose 2>&1 | tee build.log; then
+        if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
+            log "✅ Strategy 4 SUCCESS: CLI-only build completed"
+            cd ..
+            return 0
+        fi
+    fi
+    
+    log "⚠️ Strategy 4 failed, trying Strategy 5..."
+    deep_clean
+    
+    # Strategy 5: Single-threaded build
+    log "📦 Strategy 5: Single-threaded build..."
     if timeout 2400 cargo build --release --no-default-features -j 1 --verbose 2>&1 | tee build.log; then
         if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
-            log "✅ Strategy 4 SUCCESS: Single-threaded build completed"
+            log "✅ Strategy 5 SUCCESS: Single-threaded build completed"
             cd ..
             return 0
         fi
@@ -389,4 +476,3 @@ main() {
 
 # Run main function
 main "$@"
-
