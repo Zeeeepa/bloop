@@ -1,0 +1,4 @@
+error: failed to parse manifest at `/tmp/Zeeeepa/bloop/server/Cargo.toml`
+
+Caused by:
+  manifest is missing either a `[package]` or a `[workspace]`

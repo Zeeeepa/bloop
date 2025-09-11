@@ -74,7 +74,6 @@ install_system_dependencies() {
             nodejs \
             npm \
             libsoup2.4-dev \
-            libsoup-2.4-dev \
             libwebkit2gtk-4.0-dev \
             libgtk-3-dev \
             libgdk-pixbuf2.0-dev \
@@ -226,15 +225,20 @@ deep_clean() {
 fix_cargo_dependencies() {
     log "🔧 Fixing Cargo.toml for compatibility issues..."
     
-    # Add patch for time crate compilation issue
-    if ! grep -q "\[patch.crates-io\]" Cargo.toml; then
-        cat >> Cargo.toml << 'EOF'
+    # Only add patch if Cargo.toml exists and is valid
+    if [ -f "Cargo.toml" ] && grep -q "\[package\]" Cargo.toml; then
+        # Add patch for time crate compilation issue
+        if ! grep -q "\[patch.crates-io\]" Cargo.toml; then
+            cat >> Cargo.toml << 'EOF'
 
 [patch.crates-io]
 # Fix time crate compilation issue with newer Rust versions
 time = { git = "https://github.com/time-rs/time", branch = "main" }
 EOF
-        log "✅ Added time crate patch"
+            log "✅ Added time crate patch"
+        fi
+    else
+        log "⚠️ Cargo.toml not found or invalid, skipping patch"
     fi
     
     # Create .cargo/config.toml for better build settings

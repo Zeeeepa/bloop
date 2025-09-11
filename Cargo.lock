@@ -2214,7 +2214,7 @@ dependencies = [
 [[package]]
 name = "ggml"
 version = "0.2.0-dev"
-source = "git+https://github.com/bloopai/llm?branch=batch-metal-kernels#e338add10d4cda0a0b588dc3b1027d5395f5bce4"
+source = "git+https://github.com/bloopai/llm?branch=main#56e4a3527515285fc9822525493ea2f9858188d6"
 dependencies = [
  "ggml-sys",
  "memmap2 0.5.10",
@@ -2224,7 +2224,7 @@ dependencies = [
 [[package]]
 name = "ggml-sys"
 version = "0.2.0-dev"
-source = "git+https://github.com/bloopai/llm?branch=batch-metal-kernels#e338add10d4cda0a0b588dc3b1027d5395f5bce4"
+source = "git+https://github.com/bloopai/llm?branch=main#56e4a3527515285fc9822525493ea2f9858188d6"
 dependencies = [
  "cc",
 ]
@@ -4063,11 +4063,9 @@ checksum = "da2479e8c062e40bf0066ffa0bc823de0a9368974af99c9f6df941d2c231e03f"
 [[package]]
 name = "llm"
 version = "0.2.0-dev"
-source = "git+https://github.com/bloopai/llm?branch=batch-metal-kernels#e338add10d4cda0a0b588dc3b1027d5395f5bce4"
+source = "git+https://github.com/bloopai/llm?branch=main#56e4a3527515285fc9822525493ea2f9858188d6"
 dependencies = [
  "llm-base",
- "llm-bert",
- "ndarray",
  "serde",
  "tracing",
 ]
@@ -4075,7 +4073,7 @@ dependencies = [
 [[package]]
 name = "llm-base"
 version = "0.2.0-dev"
-source = "git+https://github.com/bloopai/llm?branch=batch-metal-kernels#e338add10d4cda0a0b588dc3b1027d5395f5bce4"
+source = "git+https://github.com/bloopai/llm?branch=main#56e4a3527515285fc9822525493ea2f9858188d6"
 dependencies = [
  "bytemuck",
  "ggml",
@@ -4089,17 +4087,6 @@ dependencies = [
  "serde_bytes",
  "thiserror",
  "tokenizers 0.13.4",
- "tracing",
-]
-
-[[package]]
-name = "llm-bert"
-version = "0.2.0-dev"
-source = "git+https://github.com/bloopai/llm?branch=batch-metal-kernels#e338add10d4cda0a0b588dc3b1027d5395f5bce4"
-dependencies = [
- "bytemuck",
- "llm-base",
- "num-traits",
  "tracing",
 ]
 

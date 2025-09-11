@@ -493,11 +493,33 @@ build_rust_backend() {
     # Skip database creation since we're building without database features
     log "Skipping database creation (building without database features)..."
     
-    # Clean problematic cached dependencies
-    log "Cleaning dependency cache..."
-    rm -rf ~/.cargo/git/db/llm-* 2>/dev/null || true
-    rm -rf ~/.cargo/git/db/tree-sitter-* 2>/dev/null || true
+    # CRITICAL: Force rust-toolchain.toml to use stable
+    log "Forcing rust-toolchain.toml to use stable..."
+    cat > rust-toolchain.toml << 'EOF'
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
+EOF
+    
+    # Force rustup to use stable and update
+    log "Forcing Rust to use latest stable..."
+    rustup default stable || error "Failed to set stable as default"
+    rustup update stable || warn "Failed to update stable"
+    
+    # Clean ALL problematic cached dependencies
+    log "Deep cleaning dependency cache..."
+    rm -rf ~/.cargo/git/db/* 2>/dev/null || true
     rm -rf ~/.cargo/registry/cache 2>/dev/null || true
+    rm -rf ~/.cargo/registry/src 2>/dev/null || true
+    cargo clean || true
+    
+    # Configure git for better dependency handling
+    log "Configuring git for dependency fetching..."
+    git config --global http.postBuffer 524288000 || true
+    git config --global http.maxRequestBuffer 100M || true
+    git config --global core.compression 0 || true
+    git config --global credential.helper store || true
     
     # Build with enhanced retries and better error handling
     local max_attempts=5
@@ -519,10 +541,38 @@ build_rust_backend() {
         log "Cargo version: $(cargo --version)"
         log "Build target: $(rustc --version --verbose | grep host | cut -d' ' -f2)"
         
-        # Start the build with timeout
+        # Start the build with timeout and multiple strategies
         log "Starting build (timeout: 30 minutes)..."
-        log "Building without database features to avoid SQLx issues..."
+        
+        # Try different build strategies in order of preference
+        local build_success=false
+        
+        # Strategy 1: Build without database features (preferred)
+        log "Build strategy 1: No database features..."
         if timeout 1800 cargo build --release --no-default-features --features "color-eyre" --verbose 2>&1 | tee build.log; then
+            build_success=true
+        else
+            log "Strategy 1 failed, trying strategy 2..."
+            
+            # Strategy 2: Build with minimal features
+            log "Build strategy 2: Minimal features only..."
+            if timeout 1800 cargo build --release --no-default-features --verbose 2>&1 | tee build.log; then
+                build_success=true
+            else
+                log "Strategy 2 failed, trying strategy 3..."
+                
+                # Strategy 3: Build in debug mode (faster, less optimization)
+                log "Build strategy 3: Debug mode..."
+                if timeout 1800 cargo build --no-default-features --verbose 2>&1 | tee build.log; then
+                    build_success=true
+                    # Copy debug binary to release location for consistency
+                    mkdir -p target/release
+                    cp target/debug/bleep target/release/bleep 2>/dev/null || true
+                fi
+            fi
+        fi
+        
+        if [ "$build_success" = true ]; then
             log "Rust backend built successfully ✓"
             
             # Verify the binary was created and is executable

@@ -1,0 +1,14 @@
+[build]
+jobs = 4
+
+[net]
+retry = 10
+git-fetch-with-cli = true
+
+[http]
+timeout = 600
+multiplexing = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
