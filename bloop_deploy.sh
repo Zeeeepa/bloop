@@ -290,20 +290,47 @@ build_rust_backend() {
     deep_clean
     
     # Set build environment variables
-    export CARGO_NET_RETRY=10
-    export CARGO_HTTP_TIMEOUT=600
+    export CARGO_NET_RETRY=3
+    export CARGO_HTTP_TIMEOUT=120
     export CARGO_HTTP_MULTIPLEXING=false
+    export CARGO_NET_GIT_FETCH_WITH_CLI=true
     export RUST_BACKTRACE=1
     export CARGO_INCREMENTAL=0
     export SQLX_OFFLINE=true
     export DATABASE_URL="sqlite:bloop.db"
     
+    # Configure git for faster fetching
+    git config --global http.lowSpeedLimit 1000
+    git config --global http.lowSpeedTime 10
+    git config --global http.postBuffer 524288000
+    
     log "🔧 Cargo version: $(cargo --version)"
     log "🔧 Rust version: $(rustc --version)"
     
+    # Pre-fetch dependencies with timeout
+    log "📥 Pre-fetching dependencies (timeout: 10 minutes)..."
+    log "💡 This may take a while for git dependencies. Please be patient..."
+    
+    # Start a background progress indicator
+    (
+        while true; do
+            echo "⏳ Still fetching dependencies... $(date '+%H:%M:%S')"
+            sleep 30
+        done
+    ) &
+    PROGRESS_PID=$!
+    
+    if timeout 600 cargo fetch --verbose 2>&1 | tee fetch.log; then
+        kill $PROGRESS_PID 2>/dev/null || true
+        log "✅ Dependencies fetched successfully"
+    else
+        kill $PROGRESS_PID 2>/dev/null || true
+        log "⚠️ Dependency fetch timed out or failed, continuing with build..."
+    fi
+    
     # Strategy 1: Release build with default features (includes webserver)
     log "📦 Strategy 1: Release build with default features..."
-    if timeout 1800 cargo build --release --features "color-eyre" --verbose 2>&1 | tee build.log; then
+    if timeout 1200 cargo build --release --features "color-eyre" --verbose 2>&1 | tee build.log; then
         if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
             log "✅ Strategy 1 SUCCESS: Release build with default features completed"
             cd ../..
@@ -316,7 +343,7 @@ build_rust_backend() {
     
     # Strategy 2: Release build with minimal features
     log "📦 Strategy 2: Release build with minimal features..."
-    if timeout 1800 cargo build --release --no-default-features --features "color-eyre" --verbose 2>&1 | tee build.log; then
+    if timeout 900 cargo build --release --no-default-features --features "color-eyre" --verbose 2>&1 | tee build.log; then
         if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
             log "✅ Strategy 2 SUCCESS: Minimal release build completed"
             cd ../..
@@ -329,7 +356,7 @@ build_rust_backend() {
     
     # Strategy 3: Debug build (faster compilation)
     log "📦 Strategy 3: Debug build..."
-    if timeout 1800 cargo build --no-default-features --verbose 2>&1 | tee build.log; then
+    if timeout 600 cargo build --no-default-features --verbose 2>&1 | tee build.log; then
         if [ -f "target/debug/bleep" ] && [ -x "target/debug/bleep" ]; then
             # Copy debug binary to release location for consistency
             mkdir -p target/release
@@ -343,12 +370,25 @@ build_rust_backend() {
     log "⚠️ Strategy 3 failed, trying Strategy 4..."
     deep_clean
     
-    # Strategy 4: Build without webkit/tauri dependencies
-    log "📦 Strategy 4: Build without webkit/tauri dependencies..."
-    export CARGO_FEATURE_DISABLE_TAURI=1
-    if timeout 1800 cargo build --release --no-default-features --features "cli" --verbose 2>&1 | tee build.log; then
+    # Strategy 4: Offline build (use cached dependencies only)
+    log "📦 Strategy 4: Offline build with cached dependencies..."
+    if timeout 600 cargo build --release --no-default-features --features "color-eyre" --offline --verbose 2>&1 | tee build.log; then
         if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
-            log "✅ Strategy 4 SUCCESS: CLI-only build completed"
+            log "✅ Strategy 4 SUCCESS: Offline build completed"
+            cd ../..
+            return 0
+        fi
+    fi
+    
+    log "⚠️ Strategy 4 failed, trying Strategy 5..."
+    deep_clean
+    
+    # Strategy 5: Build without webkit/tauri dependencies
+    log "📦 Strategy 5: Build without webkit/tauri dependencies..."
+    export CARGO_FEATURE_DISABLE_TAURI=1
+    if timeout 900 cargo build --release --no-default-features --features "cli" --verbose 2>&1 | tee build.log; then
+        if [ -f "target/release/bleep" ] && [ -x "target/release/bleep" ]; then
+            log "✅ Strategy 5 SUCCESS: CLI-only build completed"
             cd ../..
             return 0
         fi
