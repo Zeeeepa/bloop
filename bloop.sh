@@ -372,8 +372,9 @@ start_services() {
     echo
     echo "Choose backend option:"
     echo "1) Rust backend (full functionality)"
-    echo "2) Mock server (development/testing)"
-    read -p "Enter choice (1 or 2): " -n 1 -r backend_choice
+    echo "2) Real Python backend (OpenAI + GitHub APIs)"
+    echo "3) Mock server (development/testing)"
+    read -p "Enter choice (1, 2, or 3): " -n 1 -r backend_choice
     echo
     
     case $backend_choice in
@@ -381,17 +382,29 @@ start_services() {
             log "Starting Rust backend..."
             if [ -f "server/bleep/target/release/bleep" ]; then
                 cd server/bleep
-                nohup ./target/release/bleep --config-file=../../local_config.json > ../../backend.log 2>&1 &
+                nohup ./target/release/bleep --config-file=../../real_backend_config.json > ../../backend.log 2>&1 &
                 BACKEND_PID=$!
                 cd ../..
                 echo $BACKEND_PID > backend.pid
                 log "Rust backend started with PID $BACKEND_PID"
             else
-                log_error "Rust backend binary not found. Please build first or use mock server."
+                log_error "Rust backend binary not found. Please build first or use another option."
                 return 1
             fi
             ;;
         2)
+            log "Starting Real Python backend with OpenAI and GitHub integration..."
+            # Check if Python dependencies are installed
+            if ! python3 -c "import aiohttp, openai, github" 2>/dev/null; then
+                log "Installing Python dependencies..."
+                pip install aiohttp aiohttp-cors openai PyGithub tiktoken
+            fi
+            nohup python3 real_backend.py > backend.log 2>&1 &
+            BACKEND_PID=$!
+            echo $BACKEND_PID > backend.pid
+            log "Real Python backend started with PID $BACKEND_PID"
+            ;;
+        3)
             log "Starting mock server..."
             nohup node mock-server.js > backend.log 2>&1 &
             BACKEND_PID=$!
@@ -551,4 +564,3 @@ main() {
 
 # Run main function
 main "$@"
-

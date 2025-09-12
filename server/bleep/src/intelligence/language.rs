@@ -1,6 +1,6 @@
 mod c;
 mod c_sharp;
-mod cobol;
+// mod cobol; // Commented out due to dependency issues
 mod cpp;
 mod go;
 mod java;
@@ -33,7 +33,7 @@ pub static ALL_LANGUAGES: &[&TSLanguageConfig] = &[
     &ruby::RUBY,
     &r::R,
     &php::PHP,
-    &cobol::COBOL,
+    // &cobol::COBOL, // Commented out due to dependency issues
 ];
 
 /// A generic language wrapper type.

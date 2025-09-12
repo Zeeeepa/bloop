@@ -1,8 +1,6 @@
 # Bloop Deployment Guide
 
-## Enhanced Deployment Script v2.0
-
-This comprehensive deployment script (`bloop.sh`) provides a robust, production-ready way to deploy and run the bloop code search engine locally.
+This guide provides comprehensive instructions for deploying the Bloop code search engine with multiple backend options.
 
 ## Features
 
@@ -249,4 +247,3 @@ For issues with the deployment script:
 2. Verify system requirements are met
 3. Try mock server mode for development
 4. Report issues with log file contents
-

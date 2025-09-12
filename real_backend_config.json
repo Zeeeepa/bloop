@@ -1,0 +1,23 @@
+{
+  "host": "127.0.0.1",
+  "port": 7878,
+  "model_dir": "./model",
+  "index_dir": "./index",
+  "max_threads": 4,
+  "buffer_size": 10000,
+  "disable_log_write": false,
+  "log_level": "info",
+  "source": {
+    "local": {
+      "path": "."
+    }
+  },
+  "answer_api_endpoint": "https://api.openai.com/v1/chat/completions",
+  "github_api_endpoint": "https://api.github.com",
+  "openai_model": "gpt-3.5-turbo",
+  "max_tokens": 2048,
+  "temperature": 0.7,
+  "github_repos": [
+    "Zeeeepa/bloop"
+  ]
+}
