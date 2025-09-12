@@ -217,6 +217,16 @@ deep_clean() {
     cargo clean 2>/dev/null || true
     rm -rf target/ 2>/dev/null || true
     rm -rf build.log 2>/dev/null || true
+    rm -rf fetch.log 2>/dev/null || true
+    
+    # Remove lock files to force fresh dependency resolution
+    rm -f Cargo.lock 2>/dev/null || true
+    rm -f */Cargo.lock 2>/dev/null || true
+    rm -f **/Cargo.lock 2>/dev/null || true
+    
+    # Clean any cached time crate specifically
+    rm -rf ~/.cargo/registry/src/*/time-* 2>/dev/null || true
+    rm -rf ~/.cargo/git/checkouts/time-* 2>/dev/null || true
     
     log "✅ Build environment cleaned"
 }
@@ -225,27 +235,97 @@ deep_clean() {
 fix_cargo_dependencies() {
     log "🔧 Fixing Cargo.toml for compatibility issues..."
     
-    # Only add patch if Cargo.toml exists and is valid (workspace or package)
-    if [ -f "Cargo.toml" ] && (grep -q "\[workspace\]" Cargo.toml || grep -q "\[package\]" Cargo.toml); then
+    # Find the workspace root Cargo.toml
+    local workspace_cargo=""
+    if [ -f "Cargo.toml" ] && grep -q "\[workspace\]" Cargo.toml; then
+        workspace_cargo="Cargo.toml"
+    elif [ -f "../Cargo.toml" ] && grep -q "\[workspace\]" ../Cargo.toml; then
+        workspace_cargo="../Cargo.toml"
+    elif [ -f "../../Cargo.toml" ] && grep -q "\[workspace\]" ../../Cargo.toml; then
+        workspace_cargo="../../Cargo.toml"
+    fi
+    
+    if [ -n "$workspace_cargo" ]; then
+        log "📝 Found workspace Cargo.toml at: $workspace_cargo"
+        
+        # Remove any existing time patches first
+        sed -i '/^time.*=.*git.*time-rs\/time/d' "$workspace_cargo" 2>/dev/null || true
+        sed -i '/^# Fix time crate compilation issue/d' "$workspace_cargo" 2>/dev/null || true
+        
         # Add patch for time crate compilation issue
-        if ! grep -q 'time.*=.*git.*time-rs/time' Cargo.toml; then
-            if grep -q "\[patch.crates-io\]" Cargo.toml; then
+        if ! grep -q 'time.*=.*git.*time-rs/time' "$workspace_cargo"; then
+            if grep -q "\[patch.crates-io\]" "$workspace_cargo"; then
                 log "📝 Adding time crate patch to existing [patch.crates-io] section..."
-                # Find the first [patch.crates-io] section and add after it
-                awk '/\[patch\.crates-io\]/ && !found {print; print "# Fix time crate compilation issue with newer Rust versions"; print "time = { git = \"https://github.com/time-rs/time\", branch = \"main\" }"; found=1; next} 1' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
+                # Add after the [patch.crates-io] line
+                sed -i '/\[patch\.crates-io\]/a # Fix time crate compilation issue with newer Rust versions\ntime = { git = "https://github.com/time-rs/time", branch = "main" }' "$workspace_cargo"
             else
                 log "📝 Creating new [patch.crates-io] section with time crate patch..."
-                echo "" >> Cargo.toml
-                echo "[patch.crates-io]" >> Cargo.toml
-                echo "# Fix time crate compilation issue with newer Rust versions" >> Cargo.toml
-                echo 'time = { git = "https://github.com/time-rs/time", branch = "main" }' >> Cargo.toml
+                echo "" >> "$workspace_cargo"
+                echo "[patch.crates-io]" >> "$workspace_cargo"
+                echo "# Fix time crate compilation issue with newer Rust versions" >> "$workspace_cargo"
+                echo 'time = { git = "https://github.com/time-rs/time", branch = "main" }' >> "$workspace_cargo"
             fi
-            log "✅ Added time crate patch to Cargo.toml"
+            log "✅ Added time crate patch to $workspace_cargo"
+            
+            # Force cargo to update the time crate
+            log "🔄 Forcing cargo to update time crate..."
+            
+            # Remove Cargo.lock to force fresh dependency resolution
+            rm -f Cargo.lock 2>/dev/null || true
+            rm -f */Cargo.lock 2>/dev/null || true
+            
+            # Update time crate specifically
+            cargo update time 2>/dev/null || true
+            cargo update time-core 2>/dev/null || true
+            cargo update time-macros 2>/dev/null || true
+            cargo update deranged 2>/dev/null || true
+            
+            # Show what we patched
+            log "📋 Current patch section:"
+            grep -A5 "\[patch.crates-io\]" "$workspace_cargo" || true
         else
             log "✅ Time crate patch already exists"
         fi
     else
-        log "⚠️ Cargo.toml not found or invalid, skipping patch"
+        log "⚠️ No workspace Cargo.toml found, trying local Cargo.toml..."
+        
+        # Fallback to local Cargo.toml if it exists
+        if [ -f "Cargo.toml" ]; then
+            log "📝 Using local Cargo.toml"
+            
+            # Remove any existing time patches first
+            sed -i '/^time.*=.*git.*time-rs\/time/d' Cargo.toml 2>/dev/null || true
+            sed -i '/^# Fix time crate compilation issue/d' Cargo.toml 2>/dev/null || true
+            
+            if ! grep -q 'time.*=.*git.*time-rs/time' Cargo.toml; then
+                if grep -q "\[patch.crates-io\]" Cargo.toml; then
+                    log "📝 Adding time crate patch to existing [patch.crates-io] section..."
+                    sed -i '/\[patch\.crates-io\]/a # Fix time crate compilation issue with newer Rust versions\ntime = { git = "https://github.com/time-rs/time", branch = "main" }' Cargo.toml
+                else
+                    log "📝 Creating new [patch.crates-io] section with time crate patch..."
+                    echo "" >> Cargo.toml
+                    echo "[patch.crates-io]" >> Cargo.toml
+                    echo "# Fix time crate compilation issue with newer Rust versions" >> Cargo.toml
+                    echo 'time = { git = "https://github.com/time-rs/time", branch = "main" }' >> Cargo.toml
+                fi
+                log "✅ Added time crate patch to local Cargo.toml"
+                
+                # Force cargo to update the time crate
+                log "🔄 Forcing cargo to update time crate..."
+                
+                # Remove Cargo.lock to force fresh dependency resolution
+                rm -f Cargo.lock 2>/dev/null || true
+                rm -f */Cargo.lock 2>/dev/null || true
+                
+                # Update time crate specifically
+                cargo update time 2>/dev/null || true
+                cargo update time-core 2>/dev/null || true
+                cargo update time-macros 2>/dev/null || true
+                cargo update deranged 2>/dev/null || true
+            fi
+        else
+            log "⚠️ No Cargo.toml found, skipping patch"
+        fi
     fi
     
     # Create .cargo/config.toml for better build settings
@@ -307,6 +387,15 @@ build_rust_backend() {
     log "🔧 Cargo version: $(cargo --version)"
     log "🔧 Rust version: $(rustc --version)"
     
+    # Verify time crate patch is working
+    log "🔍 Verifying time crate patch..."
+    if cargo tree | grep -q "time.*git+https://github.com/time-rs/time"; then
+        log "✅ Time crate patch is active"
+    else
+        log "⚠️ Time crate patch may not be active, checking dependencies..."
+        cargo tree | grep "time" | head -5 || true
+    fi
+    
     # Pre-fetch dependencies with timeout
     log "📥 Pre-fetching dependencies (timeout: 10 minutes)..."
     log "💡 This may take a while for git dependencies. Please be patient..."
@@ -323,6 +412,15 @@ build_rust_backend() {
     if timeout 600 cargo fetch --verbose 2>&1 | tee fetch.log; then
         kill $PROGRESS_PID 2>/dev/null || true
         log "✅ Dependencies fetched successfully"
+        
+        # Verify time crate version after fetch
+        log "🔍 Checking time crate version after fetch..."
+        if cargo tree | grep -q "time.*git+https://github.com/time-rs/time"; then
+            log "✅ Using patched time crate from git"
+        else
+            log "⚠️ Still using crates.io time crate, this may cause compilation issues"
+            cargo tree | grep "time" | head -3 || true
+        fi
     else
         kill $PROGRESS_PID 2>/dev/null || true
         log "⚠️ Dependency fetch timed out or failed, continuing with build..."
