@@ -49,22 +49,49 @@ main() {
         cd bloop
     fi
     
-    # Step 2: Run the bulletproof deployment script
-    if [ -f "bloop_deploy.sh" ]; then
-        log "🔧 Running bulletproof deployment script..."
-        chmod +x bloop_deploy.sh
-        ./bloop_deploy.sh || error "Deployment script failed"
+    # Step 2: Choose deployment option
+    log "🚀 Choose your deployment option:"
+    echo "1. Full deployment (Rust backend + Frontend) - Production ready but slower"
+    echo "2. Quick start (Mock backend + Frontend) - Fast setup for development"
+    echo ""
+    read -p "Enter your choice (1 or 2): " -n 1 -r
+    echo ""
+    
+    if [[ $REPLY =~ ^[1]$ ]]; then
+        if [ -f "bloop_deploy.sh" ]; then
+            log "🏗️ Running full deployment with Rust backend..."
+            chmod +x bloop_deploy.sh
+            ./bloop_deploy.sh || error "Deployment script failed"
+        else
+            error "bloop_deploy.sh not found in repository"
+        fi
+    elif [[ $REPLY =~ ^[2]$ ]]; then
+        if [ -f "quick_start.sh" ]; then
+            log "⚡ Running quick deployment with mock backend..."
+            chmod +x quick_start.sh
+            # For setup, we just want to prepare, not run the server
+            log "📦 Installing Node.js dependencies..."
+            npm install || error "Failed to install Node.js dependencies"
+            cd client && npm install && cd .. || error "Failed to install client dependencies"
+            log "✅ Quick start setup completed"
+        else
+            error "quick_start.sh not found in repository"
+        fi
     else
-        error "bloop_deploy.sh not found in repository"
+        error "Invalid choice. Please run the script again and choose 1 or 2."
     fi
     
     # Step 3: Verify installation
     log "✅ Verifying installation..."
     
-    if [ -f "server/bleep/target/release/bleep" ] || [ -f "server/bleep/target/debug/bleep" ]; then
-        log "✅ Backend binary found"
+    if [[ $REPLY =~ ^[1]$ ]]; then
+        if [ -f "server/bleep/target/release/bleep" ] || [ -f "server/bleep/target/debug/bleep" ]; then
+            log "✅ Backend binary found"
+        else
+            error "Backend binary not found"
+        fi
     else
-        error "Backend binary not found"
+        log "✅ Mock backend setup (no binary needed)"
     fi
     
     if [ -f "package.json" ]; then
@@ -175,15 +202,27 @@ EOF
     # Step 5: Final success message
     log "🎉 SETUP COMPLETED SUCCESSFULLY!"
     echo ""
-    echo "🚀 NEXT STEPS:"
-    echo "   1. Run: ./preview.sh"
-    echo "   2. Open: http://localhost:3000"
-    echo "   3. Enjoy bloop code search!"
-    echo ""
-    echo "📁 Files created:"
-    echo "   - bloop_deploy.sh (deployment script)"
-    echo "   - preview.sh (startup script)"
-    echo "   - local_config.json (configuration)"
+    if [[ $REPLY =~ ^[1]$ ]]; then
+        echo "🚀 NEXT STEPS (Full Deployment):"
+        echo "   1. Run: ./preview.sh"
+        echo "   2. Open: http://localhost:3000"
+        echo "   3. Enjoy bloop code search with Rust backend!"
+        echo ""
+        echo "📁 Files created:"
+        echo "   - bloop_deploy.sh (deployment script)"
+        echo "   - preview.sh (startup script)"
+        echo "   - local_config.json (configuration)"
+    else
+        echo "🚀 NEXT STEPS (Quick Start):"
+        echo "   1. Run: ./quick_start.sh"
+        echo "   2. Open: http://localhost:3000"
+        echo "   3. Enjoy bloop code search with mock backend!"
+        echo ""
+        echo "📁 Files created:"
+        echo "   - quick_start.sh (quick startup script)"
+        echo "   - mock-server.js (mock backend)"
+        echo "   - local_config.json (configuration)"
+    fi
     echo ""
     echo "🔧 Troubleshooting:"
     echo "   - Check backend.log for backend issues"
