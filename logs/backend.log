@@ -1,0 +1,9 @@
+🚀 Mock Bloop Backend running on http://127.0.0.1:7878
+📊 Health check: http://127.0.0.1:7878/health
+🔍 Search endpoint: POST http://127.0.0.1:7878/q
+📁 Repositories: GET http://127.0.0.1:7878/repos
+🎭 Mock mode - providing realistic API responses for testing
+[2025-09-12T04:17:46.203Z] GET /health
+[2025-09-12T04:18:34.117Z] GET /health
+[2025-09-12T04:18:41.310Z] POST /q
+🛑 Received SIGTERM, shutting down gracefully

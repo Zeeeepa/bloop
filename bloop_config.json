@@ -1,0 +1,10 @@
+{
+  "host": "127.0.0.1",
+  "backend_port": 7878,
+  "frontend_port": 3001,
+  "log_level": "info",
+  "data_dir": "./data",
+  "index_dir": "./index",
+  "openai_enabled": true,
+  "github_enabled": true
+}

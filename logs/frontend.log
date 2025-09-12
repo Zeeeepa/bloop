@@ -1,0 +1,14 @@
+
+> start-web
+> npm --prefix client run dev --host 127.0.0.1 --port 3001
+
+
+> @bloop/client@0.5.12 dev
+> vite 127.0.0.1 3001
+
+(!) Could not auto-determine entry point from rollupOptions or html files and there are no explicit optimizeDeps.include patterns. Skipping dependency pre-bundling.
+
+  VITE v4.5.1  ready in 254 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose

@@ -1,0 +1,31 @@
+[2025-09-12 04:13:04] INFO: 🔍 Checking system dependencies...
+[2025-09-12 04:13:04] SUCCESS: ✅ Git: git version 2.39.5
+[2025-09-12 04:13:04] SUCCESS: ✅ Node.js: v22.14.0
+[2025-09-12 04:13:04] SUCCESS: ✅ NPM: 10.9.2
+[2025-09-12 04:13:05] SUCCESS: ✅ Rust: rustc 1.89.0 (29483883e 2025-08-04)
+[2025-09-12 04:13:05] SUCCESS: ✅ Cargo: cargo 1.89.0 (c24e10642 2025-06-23)
+[2025-09-12 04:13:05] INFO: 🧪 Using Quick Start mode for testing
+[2025-09-12 04:13:05] INFO: 🧪 Using provided test configuration
+[2025-09-12 04:13:05] SUCCESS: ✅ OPENAI_API_KEY: [PROVIDED]
+[2025-09-12 04:13:05] SUCCESS: ✅ GITHUB_TOKEN: [PROVIDED]
+[2025-09-12 04:13:05] SUCCESS: ✅ BLOOP_HOST: 127.0.0.1
+[2025-09-12 04:13:05] SUCCESS: ✅ BLOOP_BACKEND_PORT: 7878
+[2025-09-12 04:13:05] SUCCESS: ✅ BLOOP_FRONTEND_PORT: 3000
+[2025-09-12 04:13:05] SUCCESS: ✅ BLOOP_LOG_LEVEL: info
+[2025-09-12 04:13:05] SUCCESS: ✅ BLOOP_DATA_DIR: ./data
+[2025-09-12 04:13:05] SUCCESS: ✅ BLOOP_INDEX_DIR: ./index
+[2025-09-12 04:13:05] INFO: 💾 Saving configuration...
+[2025-09-12 04:13:05] SUCCESS: ✅ Configuration saved to bloop_config.json and .env
+[2025-09-12 04:13:05] INFO: 📁 Creating directories...
+[2025-09-12 04:13:05] SUCCESS: ✅ Created directory: ./data
+[2025-09-12 04:13:05] SUCCESS: ✅ Created directory: ./index
+[2025-09-12 04:13:05] SUCCESS: ✅ Created directory: ./logs
+[2025-09-12 04:13:05] INFO: 📦 Installing Node.js dependencies...
+[2025-09-12 04:13:08] INFO: Installing client dependencies...
+[2025-09-12 04:13:09] SUCCESS: ✅ Node.js dependencies installed
+[2025-09-12 04:13:09] INFO: 🔍 Validating configuration...
+[2025-09-12 04:13:09] WARN: ⚠️ Frontend port 3000 is already in use
+[2025-09-12 04:13:09] SUCCESS: ✅ Configuration validation passed
+[2025-09-12 04:13:09] INFO: 📄 Creating deployment files for quick mode...
+[2025-09-12 04:13:09] SUCCESS: ✅ Deployment files created
+[2025-09-12 04:13:09] SUCCESS: 🎉 Setup completed successfully!
